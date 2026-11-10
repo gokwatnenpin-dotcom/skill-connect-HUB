@@ -46,7 +46,7 @@ The frontend is at `http://localhost:5173` and the backend is at `http://localho
 - Artisan profile creation/editing and product add/edit/delete.
 - Public skill/area search, artisan profile pages, product pages, and product lists.
 - One direct conversation per customer and artisan.
-- Text and photo-URL messages with polling refresh and inbox listing.
+- Text and photo messages with polling refresh and inbox listing.
 - “Message” on artisan profiles and “Ask about this” on products.
 
 Payments, Cloudinary uploads, unread persistence, moderation, and real-time sockets are not included yet.
