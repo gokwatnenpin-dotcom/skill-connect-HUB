@@ -22,6 +22,9 @@ async function auth(req, res, next) {
   req.user = result.rows[0]; next();
 }
 const artisanRequired = (req, res, next) => req.user.role === 'artisan' ? next() : res.status(403).json({ message: 'Only artisan accounts can do this.' });
+const databaseMessage = (error) => ['ECONNREFUSED', 'ENOTFOUND', '3D000', '28P01'].includes(error.code)
+  ? (error.code === '28P01' ? 'PostgreSQL credentials are incorrect. Update DATABASE_URL in .env, then load backend/db/schema.sql.' : 'PostgreSQL is not available. Start PostgreSQL, create the skillconnect_hub database, and load backend/db/schema.sql.')
+  : 'Could not complete the request.';
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'SkillConnect-HUB API' }));
 
@@ -35,7 +38,7 @@ app.post('/api/auth/signup', async (req, res) => {
     const session = newToken();
     await pool.query("INSERT INTO sessions (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 days')", [result.rows[0].id, session]);
     res.status(201).json({ token: session, user: publicUser(result.rows[0]) });
-  } catch (error) { res.status(error.code === '23505' ? 409 : 500).json({ message: error.code === '23505' ? 'That email is already registered.' : 'Could not create account.' }); }
+  } catch (error) { res.status(error.code === '23505' ? 409 : 500).json({ message: error.code === '23505' ? 'That email is already registered.' : databaseMessage(error) }); }
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -101,7 +104,7 @@ app.get('/api/products', async (req, res) => {
 });
 
 app.get('/api/conversations', auth, async (req, res) => {
-  const result = await pool.query(`SELECT c.id, c.artisan_id AS "artisanId", u.name AS "artisanName", c.customer_id AS "customerId", cu.name AS "customerName", c.updated_at AS "updatedAt", (SELECT body FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) AS "lastMessage" FROM conversations c JOIN artisans a ON a.id = c.artisan_id JOIN users u ON u.id = a.user_id JOIN users cu ON cu.id = c.customer_id WHERE c.customer_id = $1 OR a.user_id = $1 ORDER BY c.updated_at DESC`, [req.user.id]);
+  const result = await pool.query(`SELECT c.id, c.artisan_id AS "artisanId", u.name AS "artisanName", c.customer_id AS "customerId", cu.name AS "customerName", c.updated_at AS "updatedAt", (SELECT body FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) AS "lastMessage", (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id AND m.sender_id <> $1 AND m.is_read = FALSE) AS "unreadCount" FROM conversations c JOIN artisans a ON a.id = c.artisan_id JOIN users u ON u.id = a.user_id JOIN users cu ON cu.id = c.customer_id WHERE c.customer_id = $1 OR a.user_id = $1 ORDER BY c.updated_at DESC`, [req.user.id]);
   res.json(result.rows);
 });
 
@@ -117,6 +120,7 @@ async function conversationAccess(req, res) {
 }
 app.get('/api/conversations/:id/messages', auth, async (req, res) => {
   if (!await conversationAccess(req, res)) return res.status(403).json({ message: 'Conversation not available.' });
+  await pool.query('UPDATE messages SET is_read = TRUE WHERE conversation_id = $1 AND sender_id <> $2', [req.params.id, req.user.id]);
   const result = await pool.query('SELECT m.id, m.body, m.image_url AS "imageUrl", m.sender_id AS "senderId", u.name AS "senderName", m.created_at AS "createdAt" FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.conversation_id = $1 ORDER BY m.created_at ASC', [req.params.id]);
   res.json(result.rows);
 });
@@ -128,4 +132,6 @@ app.post('/api/conversations/:id/messages', auth, async (req, res) => {
   res.status(201).json({ message: result.rows[0] });
 });
 
+pool.query('SELECT 1').then(() => console.log('PostgreSQL connected.')).catch((error) => console.error(`Database connection failed: ${databaseMessage(error)} Detail: ${error.message}`));
+pool.on('error', (error) => console.error(`PostgreSQL pool error: ${error.message}`));
 app.listen(port, () => console.log(`SkillConnect-HUB API running on port ${port}`));

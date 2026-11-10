@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS bookings;
+
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY, name VARCHAR(120) NOT NULL, email VARCHAR(255) UNIQUE NOT NULL,
   password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, role VARCHAR(20) NOT NULL CHECK (role IN ('customer', 'artisan')),
@@ -24,6 +26,6 @@ CREATE TABLE IF NOT EXISTS conversations (
 );
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY, conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, body TEXT, image_url TEXT,
+  sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, body TEXT, image_url TEXT, is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(), CHECK (body IS NOT NULL OR image_url IS NOT NULL)
 );
