@@ -1,34 +1,52 @@
 # SkillConnect-HUB
 
-SkillConnect-HUB connects customers with trusted artisans for services and, later, products.
+SkillConnect-HUB is a direct-message marketplace for customers and artisans. There are no bookings: customers find an artisan or product, open one conversation, and agree on the details in the DM.
 
-## Run locally
+## Setup
 
 Requirements: Node.js 18+ and PostgreSQL.
 
+1. Create the PostgreSQL database:
+
 ```bash
-npm install
-cp .env.example backend/.env
-npm run dev
+createdb skillconnect_hub
 ```
 
-The demo opens at `http://localhost:5173`; the API runs at `http://localhost:5000`.
+2. Create the local environment file:
 
-To create the database tables:
+```bash
+cp .env.example .env
+```
+
+Edit `.env` if your PostgreSQL username, password, host, or port differs. The default database URL is:
+
+```text
+postgresql://postgres:postgres@localhost:5432/skillconnect_hub
+```
+
+3. Load the schema:
 
 ```bash
 psql "$DATABASE_URL" -f backend/db/schema.sql
 ```
 
-## Demo scope
+4. Install and run both applications:
 
-The first demo covers project setup, a service search, artisan profiles, and booking requests. Authentication, Paystack escrow, Cloudinary uploads, and production deployment follow next.
+```bash
+npm install
+npm run dev
+```
 
-## Product roadmap
+The frontend is at `http://localhost:5173` and the backend is at `http://localhost:5000`.
 
-1. Setup, authentication, artisan profiles, search, and booking demo
-2. Messaging after booking: one customer–artisan chat, text/photo messages, quotes, unread indicator, reporting, and safety notice
-3. Artisan products: Services/Shop tabs, product photo/name/price, “Ask about this” opening the same chat with the product attached
-4. Paystack payment protection, job/product confirmation, reviews, dashboards, admin tools, and deployment
+## Current features
 
-Messaging and products share the same conversation, payment, review, complaint, and moderation foundation. Real-time chat, voice notes, WhatsApp alerts, and multilingual support are later enhancements.
+- Customer and artisan signup/login with hashed passwords and login tokens.
+- Empty database on first setup: no seeded artisans, products, or sample cards.
+- Artisan profile creation/editing and product add/edit/delete.
+- Public skill/area search, artisan profile pages, product pages, and product lists.
+- One direct conversation per customer and artisan.
+- Text and photo-URL messages with polling refresh and inbox listing.
+- “Message” on artisan profiles and “Ask about this” on products.
+
+Payments, Cloudinary uploads, unread persistence, moderation, and real-time sockets are not included yet.

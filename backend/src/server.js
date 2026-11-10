@@ -53,8 +53,9 @@ app.get('/api/me', auth, async (req, res) => {
 });
 
 app.post('/api/artisan/profile', auth, artisanRequired, async (req, res) => {
-  const { skill, area, bio, startingPrice, imageUrl } = req.body;
-  if (!skill || !area) return res.status(400).json({ message: 'Skill and area are required.' });
+  const { name, skill, area, bio, startingPrice, imageUrl } = req.body;
+  if (!name || !skill || !area) return res.status(400).json({ message: 'Name, skill, and area are required.' });
+  await pool.query('UPDATE users SET name = $1 WHERE id = $2', [name.trim(), req.user.id]);
   const result = await pool.query(`INSERT INTO artisans (user_id, skill, area, bio, starting_price, image_url) VALUES ($1, $2, $3, $4, $5, $6)
     ON CONFLICT (user_id) DO UPDATE SET skill = EXCLUDED.skill, area = EXCLUDED.area, bio = EXCLUDED.bio, starting_price = EXCLUDED.starting_price, image_url = EXCLUDED.image_url RETURNING *`, [req.user.id, skill, area, bio || null, Number(startingPrice) || null, imageUrl || null]);
   res.status(201).json({ artisan: result.rows[0] });
@@ -79,6 +80,19 @@ app.post('/api/products', auth, artisanRequired, async (req, res) => {
   if (!name || !price || !imageUrl) return res.status(400).json({ message: 'Product name, price, and photo URL are required.' });
   const result = await pool.query('INSERT INTO products (artisan_id, name, description, price, image_url, in_stock) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, description, price, image_url AS "imageUrl", in_stock AS "inStock"', [artisan.id, name, description || null, Number(price), imageUrl, inStock]);
   res.status(201).json({ product: result.rows[0] });
+});
+
+app.put('/api/products/:id', auth, artisanRequired, async (req, res) => {
+  const { name, description, price, imageUrl, inStock } = req.body;
+  const result = await pool.query(`UPDATE products p SET name = $1, description = $2, price = $3, image_url = $4, in_stock = $5 FROM artisans a WHERE p.id = $6 AND p.artisan_id = a.id AND a.user_id = $7 RETURNING p.id, p.name, p.description, p.price, p.image_url AS "imageUrl", p.in_stock AS "inStock"`, [name, description || null, Number(price), imageUrl, inStock, req.params.id, req.user.id]);
+  if (!result.rows[0]) return res.status(404).json({ message: 'Product not found.' });
+  res.json({ product: result.rows[0] });
+});
+
+app.delete('/api/products/:id', auth, artisanRequired, async (req, res) => {
+  const result = await pool.query('DELETE FROM products p USING artisans a WHERE p.id = $1 AND p.artisan_id = a.id AND a.user_id = $2 RETURNING p.id', [req.params.id, req.user.id]);
+  if (!result.rows[0]) return res.status(404).json({ message: 'Product not found.' });
+  res.status(204).end();
 });
 
 app.get('/api/products', async (req, res) => {
