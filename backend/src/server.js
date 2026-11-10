@@ -4,6 +4,7 @@ import cors from 'cors';
 import crypto from 'node:crypto';
 import { pool } from './db.js';
 
+
 const app = express();
 const port = process.env.PORT || 5000;
 app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
@@ -22,9 +23,10 @@ async function auth(req, res, next) {
   req.user = result.rows[0]; next();
 }
 const artisanRequired = (req, res, next) => req.user.role === 'artisan' ? next() : res.status(403).json({ message: 'Only artisan accounts can do this.' });
-const databaseMessage = (error) => ['ECONNREFUSED', 'ENOTFOUND', '3D000', '28P01'].includes(error.code)
-  ? (error.code === '28P01' ? 'PostgreSQL credentials are incorrect. Update DATABASE_URL in .env, then load backend/db/schema.sql.' : 'PostgreSQL is not available. Start PostgreSQL, create the skillconnect_hub database, and load backend/db/schema.sql.')
+const databaseMessage = (error) => ['ECONNREFUSED', 'ENOTFOUND', '3D000', '28P01'].includes(error.code) || /password|SASL/i.test(error.message || '')
+  ? (error.code === '28P01' || /password|SASL/i.test(error.message || '') ? 'PostgreSQL credentials are incorrect. Update DATABASE_URL in .env, then load backend/db/schema.sql.' : 'PostgreSQL is not available. Start PostgreSQL, create the skillconnect_hub database, and load backend/db/schema.sql.')
   : 'Could not complete the request.';
+process.on('unhandledRejection', (error) => console.error(`Request failed: ${databaseMessage(error)}`));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'SkillConnect-HUB API' }));
 
