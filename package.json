@@ -1,0 +1,15 @@
+{
+  "name": "skillconnect-hub",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=frontend\" \"npm run dev --workspace=backend\"",
+    "build": "npm run build --workspace=frontend",
+    "start": "npm run start --workspace=backend",
+    "install:all": "npm install --workspaces"
+  },
+  "workspaces": ["frontend", "backend"],
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
