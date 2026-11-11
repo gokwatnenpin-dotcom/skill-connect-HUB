@@ -28,7 +28,24 @@ export default function Dashboard({ user }) {
 
   async function saveVerification(event) {
     event.preventDefault();
-    try { await request('/artisan/verification', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) }); setNotice('Verification submitted.'); load(); } catch (error) { setNotice(error.message); }
+    try {
+      const values = Object.fromEntries(new FormData(event.currentTarget));
+      values.idPhotoUrl = await fileData(values.idPhotoUrl);
+      values.selfieUrl = await fileData(values.selfieUrl);
+      await request('/artisan/verification', { method: 'POST', body: JSON.stringify(values) });
+      setNotice('Verification submitted.');
+      load();
+    } catch (error) { setNotice(error.message); }
+  }
+
+  function fileData(file) {
+    if (!file || !file.name) return '';
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   }
 
   async function saveProduct(event) {
@@ -66,8 +83,8 @@ export default function Dashboard({ user }) {
         {profile.verification_rejection_reason && <p className="error">{profile.verification_rejection_reason}</p>}
         <label>ID type<input name="idType" placeholder="NIN, passport..." required /></label>
         <label>ID number<input name="idNumber" required /></label>
-        <label>ID photo URL<input name="idPhotoUrl" placeholder="https://..." required /></label>
-        <label>Selfie URL<input name="selfieUrl" placeholder="https://..." required /></label>
+        <label>ID photo<input name="idPhotoUrl" type="file" accept="image/*" required /></label>
+        <label>Selfie<input name="selfieUrl" type="file" accept="image/*" required /></label>
         <button className="primary">Submit verification</button>
       </form>
 
