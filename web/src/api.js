@@ -1,4 +1,4 @@
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API = import.meta.env.VITE_API_URL || (window.location.hostname.endsWith('vercel.app') ? 'https://skill-connect-hub.onrender.com/api' : 'http://localhost:5000/api');
 
 export function authHeaders() {
   return {

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { request } from '../api.js';
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '324812702978-ul21fnj3ccs5spdu85al4kpcogf49bla.apps.googleusercontent.com';
+
 export default function AuthModal({ onClose, onLogin }) {
   const [signup, setSignup] = useState(false);
   const [role, setRole] = useState('customer');
@@ -29,7 +31,7 @@ export default function AuthModal({ onClose, onLogin }) {
   }
 
   useEffect(() => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    const clientId = GOOGLE_CLIENT_ID;
     if (!clientId || !googleButton.current) return undefined;
     const render = () => {
       if (!window.google || !googleButton.current) return;
@@ -74,8 +76,8 @@ export default function AuthModal({ onClose, onLogin }) {
           <button className="primary full">{signup ? 'Create account' : 'Log in'}</button>
         </form>
 
-        {import.meta.env.VITE_GOOGLE_CLIENT_ID && <>
-          <div className="my-3 text-center text-sm text-[#6b7b73]">or continue with</div>
+        {GOOGLE_CLIENT_ID && <>
+          <div className="my-3 text-center text-sm text-slate">or continue with</div>
           <div ref={googleButton} className="flex justify-center" />
         </>}
 
