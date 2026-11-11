@@ -24,6 +24,16 @@ Edit `.env` if your PostgreSQL username, password, host, or port differs. The de
 postgresql://postgres:postgres@localhost:5432/skillconnect_hub
 ```
 
+Add Paystack test credentials before testing payments:
+
+```text
+PAYSTACK_SECRET_KEY=sk_test_...
+PAYSTACK_PUBLIC_KEY=pk_test_...
+PAYSTACK_WEBHOOK_SECRET=whsec_...
+PAYSTACK_FEE_PERCENT=10
+PAYSTACK_CALLBACK_URL=http://localhost:5173/#inbox
+```
+
 3. Load the schema:
 
 ```bash
@@ -56,5 +66,8 @@ The frontend is at `http://localhost:5173` and the backend is at `http://localho
 - One direct conversation per customer and artisan.
 - Text and photo messages with polling refresh and inbox listing.
 - “Message” on artisan profiles and “Ask about this” on products.
+- Payment requests inside DMs, Paystack verification/webhooks, order status, dispute, and payout tracking.
+
+For hosted payments, set the Paystack webhook URL to `https://YOUR-API-DOMAIN/api/paystack/webhook`. Paystack must be able to reach this URL over HTTPS. The backend verifies the signature and transaction amount before marking an order paid.
 
 Payments, Cloudinary uploads, moderation, and real-time sockets are not included yet.

@@ -4,136 +4,103 @@ import cors from 'cors';
 import crypto from 'node:crypto';
 import { pool } from '../src/db.js';
 
-
 const app = express();
 const port = process.env.PORT || 5000;
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
-app.use(express.json({ limit: '2mb' }));
+const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+const feePercent = Number(process.env.PAYSTACK_FEE_PERCENT || 10);
 
 const hashPassword = (password, salt = crypto.randomBytes(16).toString('hex')) => ({ salt, hash: crypto.scryptSync(password, salt, 64).toString('hex') });
 const validPassword = (password, salt, hash) => crypto.timingSafeEqual(Buffer.from(hashPassword(password, salt).hash, 'hex'), Buffer.from(hash, 'hex'));
 const newToken = () => crypto.randomBytes(32).toString('hex');
 const publicUser = (user) => ({ id: user.id, name: user.name, email: user.email, role: user.role });
-
-async function auth(req, res, next) {
-  const value = req.headers.authorization || '';
-  if (!value.startsWith('Bearer ')) return res.status(401).json({ message: 'Please log in.' });
-  const result = await pool.query('SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = $1 AND s.expires_at > NOW()', [value.slice(7)]);
-  if (!result.rows[0]) return res.status(401).json({ message: 'Your session has expired.' });
-  req.user = result.rows[0]; next();
-}
-const artisanRequired = (req, res, next) => req.user.role === 'artisan' ? next() : res.status(403).json({ message: 'Only artisan accounts can do this.' });
 const databaseMessage = (error) => ['ECONNREFUSED', 'ENOTFOUND', '3D000', '28P01'].includes(error.code) || /password|SASL/i.test(error.message || '')
   ? (error.code === '28P01' || /password|SASL/i.test(error.message || '') ? 'PostgreSQL credentials are incorrect. Update DATABASE_URL in .env, then load supabase/schema.sql.' : 'PostgreSQL is not available. Start PostgreSQL, create the skillconnect_hub database, and load supabase/schema.sql.')
   : 'Could not complete the request.';
-process.on('unhandledRejection', (error) => console.error(`Request failed: ${databaseMessage(error)}`));
+const databaseError = (res, error) => res.status(500).json({ message: databaseMessage(error) });
+
+app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173' }));
+app.post('/api/paystack/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!verifyPaystackSignature(req)) return res.sendStatus(401);
+  let event;
+  try { event = JSON.parse(req.body.toString('utf8')); } catch { return res.sendStatus(400); }
+  try {
+    if (event.event === 'charge.success' && event.data?.reference) await markPaid(event.data.reference, event.data);
+    if (event.event === 'transfer.success' && event.data?.reference) await pool.query('UPDATE orders SET payout_status = $1, updated_at = NOW() WHERE payout_reference = $2', ['success', event.data.reference]);
+    if (event.event === 'transfer.failed' && event.data?.reference) await pool.query('UPDATE orders SET payout_status = $1, payout_error = $2, updated_at = NOW() WHERE payout_reference = $3', ['failed', event.data.reason || 'Paystack transfer failed', event.data.reference]);
+    res.sendStatus(200);
+  } catch (error) { console.error(`Paystack webhook failed: ${error.message}`); res.sendStatus(500); }
+});
+app.use(express.json({ limit: '2mb' }));
+
+function verifyPaystackSignature(req) {
+  const secret = process.env.PAYSTACK_WEBHOOK_SECRET || paystackSecret;
+  const header = req.headers['x-paystack-signature'] || req.headers['paystack-signature'];
+  if (!secret || !header || !Buffer.isBuffer(req.body)) return false;
+  if (header.startsWith('t=')) {
+    const parts = Object.fromEntries(header.split(',').map((part) => part.split('=')));
+    const timestamp = Number(parts.t);
+    if (!timestamp || Math.abs(Date.now() / 1000 - timestamp) > 300 || !parts.v1) return false;
+    const expected = crypto.createHmac('sha512', secret).update(`${parts.t}.${req.body.toString('utf8')}`).digest('hex');
+    return safeEqualHex(expected, parts.v1);
+  }
+  return safeEqualHex(crypto.createHmac('sha512', secret).update(req.body).digest('hex'), header);
+}
+function safeEqualHex(left, right) { try { const a = Buffer.from(left, 'hex'); const b = Buffer.from(right, 'hex'); return a.length === b.length && crypto.timingSafeEqual(a, b); } catch { return false; } }
+function containsOffPlatformDetails(text = '') { return /(?:\+?234|0)[789]\d{9}|\b\d{10}\b|\b(?:bank|account number|account no|transfer|whatsapp|call me)\b/i.test(text); }
+async function paystack(path, options = {}) {
+  if (!paystackSecret) { const error = new Error('Paystack is not configured. Add PAYSTACK_SECRET_KEY to .env.'); error.status = 503; throw error; }
+  const response = await fetch(`https://api.paystack.co${path}`, { ...options, headers: { Authorization: `Bearer ${paystackSecret}`, 'Content-Type': 'application/json', ...(options.headers || {}) } });
+  const data = await response.json();
+  if (!response.ok || !data.status) { const error = new Error(data.message || 'Paystack request failed.'); error.status = 502; throw error; }
+  return data.data;
+}
+async function auth(req, res, next) {
+  const value = req.headers.authorization || '';
+  if (!value.startsWith('Bearer ')) return res.status(401).json({ message: 'Please log in.' });
+  try {
+    const result = await pool.query('SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = $1 AND s.expires_at > NOW()', [value.slice(7)]);
+    if (!result.rows[0]) return res.status(401).json({ message: 'Your session has expired.' });
+    req.user = result.rows[0]; next();
+  } catch (error) { databaseError(res, error); }
+}
+const artisanRequired = (req, res, next) => req.user.role === 'artisan' ? next() : res.status(403).json({ message: 'Only artisan accounts can do this.' });
+async function conversationAccess(req) { return (await pool.query('SELECT c.id, c.customer_id, c.artisan_id, a.user_id AS artisan_user_id FROM conversations c JOIN artisans a ON a.id = c.artisan_id WHERE c.id = $1 AND (c.customer_id = $2 OR a.user_id = $2)', [req.params.id, req.user.id])).rows[0]; }
+async function orderAccess(id, userId) { return (await pool.query('SELECT o.*, a.user_id AS artisan_user_id FROM orders o JOIN artisans a ON a.id = o.artisan_id WHERE o.id = $1 AND (o.customer_id = $2 OR a.user_id = $2)', [id, userId])).rows[0]; }
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, service: 'SkillConnect-HUB API' }));
+app.post('/api/auth/signup', async (req, res) => { const { name, email, password, role = 'customer' } = req.body; if (!name || !email || !password || !['customer', 'artisan'].includes(role)) return res.status(400).json({ message: 'Name, email, password, and account type are required.' }); if (password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters.' }); try { const { salt, hash } = hashPassword(password); const result = await pool.query('INSERT INTO users (name, email, password_hash, password_salt, role) VALUES ($1, LOWER($2), $3, $4, $5) RETURNING *', [name.trim(), email.trim(), hash, salt, role]); const session = newToken(); await pool.query("INSERT INTO sessions (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 days')", [result.rows[0].id, session]); res.status(201).json({ token: session, user: publicUser(result.rows[0]) }); } catch (error) { res.status(error.code === '23505' ? 409 : 500).json({ message: error.code === '23505' ? 'That email is already registered.' : databaseMessage(error) }); } });
+app.post('/api/auth/login', async (req, res) => { try { const result = await pool.query('SELECT * FROM users WHERE email = LOWER($1)', [req.body.email || '']); const user = result.rows[0]; if (!user || !validPassword(req.body.password || '', user.password_salt, user.password_hash)) return res.status(401).json({ message: 'Email or password is incorrect.' }); const session = newToken(); await pool.query("INSERT INTO sessions (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 days')", [user.id, session]); res.json({ token: session, user: publicUser(user) }); } catch (error) { databaseError(res, error); } });
+app.get('/api/me', auth, async (req, res) => { try { const artisan = req.user.role === 'artisan' ? (await pool.query('SELECT * FROM artisans WHERE user_id = $1', [req.user.id])).rows[0] : null; res.json({ user: publicUser(req.user), artisan }); } catch (error) { databaseError(res, error); } });
+app.post('/api/artisan/profile', auth, artisanRequired, async (req, res) => { try { const { name, skill, area, bio, startingPrice, imageUrl } = req.body; if (!name || !skill || !area) return res.status(400).json({ message: 'Name, skill, and area are required.' }); await pool.query('UPDATE users SET name = $1 WHERE id = $2', [name.trim(), req.user.id]); const result = await pool.query(`INSERT INTO artisans (user_id, skill, area, bio, starting_price, image_url) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (user_id) DO UPDATE SET skill = EXCLUDED.skill, area = EXCLUDED.area, bio = EXCLUDED.bio, starting_price = EXCLUDED.starting_price, image_url = EXCLUDED.image_url RETURNING *`, [req.user.id, skill, area, bio || null, Number(startingPrice) || null, imageUrl || null]); res.status(201).json({ artisan: result.rows[0] }); } catch (error) { databaseError(res, error); } });
+app.post('/api/artisan/payout-details', auth, artisanRequired, async (req, res) => { try { const { bankName, bankCode, accountNumber } = req.body; if (!bankName || !bankCode || !/^\d{10}$/.test(accountNumber || '')) return res.status(400).json({ message: 'Bank name, bank code, and a 10-digit account number are required.' }); const artisan = (await pool.query('SELECT id FROM artisans WHERE user_id = $1', [req.user.id])).rows[0]; if (!artisan) return res.status(400).json({ message: 'Create your artisan profile first.' }); const recipient = await paystack('/transferrecipient', { method: 'POST', body: JSON.stringify({ type: 'nuban', name: req.user.name, account_number: accountNumber, bank_code: bankCode, currency: 'NGN' }) }); const result = await pool.query('UPDATE artisans SET bank_name = $1, bank_code = $2, account_number = $3, recipient_code = $4 WHERE id = $5 RETURNING bank_name AS "bankName", bank_code AS "bankCode", account_number AS "accountNumber"', [bankName, bankCode, accountNumber, recipient.recipient_code, artisan.id]); res.json({ payout: result.rows[0] }); } catch (error) { res.status(error.status || 500).json({ message: error.status ? error.message : databaseMessage(error) }); } });
+app.get('/api/artisans', async (req, res) => { try { const result = await pool.query(`SELECT a.id, a.user_id AS "userId", u.name, a.skill, a.area, a.bio, a.starting_price AS "startingPrice", a.image_url AS "imageUrl" FROM artisans a JOIN users u ON u.id = a.user_id WHERE a.skill ILIKE $1 AND a.area ILIKE $2 ORDER BY a.created_at DESC`, [`%${req.query.service || ''}%`, `%${req.query.area || ''}%`]); res.json(result.rows); } catch (error) { databaseError(res, error); } });
+app.get('/api/artisans/:id', async (req, res) => { try { const artisan = (await pool.query(`SELECT a.id, a.user_id AS "userId", u.name, a.skill, a.area, a.bio, a.starting_price AS "startingPrice", a.image_url AS "imageUrl" FROM artisans a JOIN users u ON u.id = a.user_id WHERE a.id = $1`, [req.params.id])).rows[0]; if (!artisan) return res.status(404).json({ message: 'Artisan not found.' }); const products = (await pool.query('SELECT id, name, description, price, image_url AS "imageUrl", in_stock AS "inStock" FROM products WHERE artisan_id = $1 ORDER BY created_at DESC', [artisan.id])).rows; res.json({ artisan, products }); } catch (error) { databaseError(res, error); } });
+app.post('/api/products', auth, artisanRequired, async (req, res) => { try { const { name, description, price, imageUrl, inStock = true } = req.body; const artisan = (await pool.query('SELECT id FROM artisans WHERE user_id = $1', [req.user.id])).rows[0]; if (!artisan) return res.status(400).json({ message: 'Create your artisan profile first.' }); if (!name || !price || !imageUrl) return res.status(400).json({ message: 'Product name, price, and photo URL are required.' }); const result = await pool.query('INSERT INTO products (artisan_id, name, description, price, image_url, in_stock) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, description, price, image_url AS "imageUrl", in_stock AS "inStock"', [artisan.id, name, description || null, Number(price), imageUrl, inStock]); res.status(201).json({ product: result.rows[0] }); } catch (error) { databaseError(res, error); } });
+app.put('/api/products/:id', auth, artisanRequired, async (req, res) => { try { const { name, description, price, imageUrl, inStock } = req.body; const result = await pool.query(`UPDATE products p SET name = $1, description = $2, price = $3, image_url = $4, in_stock = $5 FROM artisans a WHERE p.id = $6 AND p.artisan_id = a.id AND a.user_id = $7 RETURNING p.id, p.name, p.description, p.price, p.image_url AS "imageUrl", p.in_stock AS "inStock"`, [name, description || null, Number(price), imageUrl, inStock, req.params.id, req.user.id]); if (!result.rows[0]) return res.status(404).json({ message: 'Product not found.' }); res.json({ product: result.rows[0] }); } catch (error) { databaseError(res, error); } });
+app.delete('/api/products/:id', auth, artisanRequired, async (req, res) => { try { const result = await pool.query('DELETE FROM products p USING artisans a WHERE p.id = $1 AND p.artisan_id = a.id AND a.user_id = $2 RETURNING p.id', [req.params.id, req.user.id]); if (!result.rows[0]) return res.status(404).json({ message: 'Product not found.' }); res.status(204).end(); } catch (error) { databaseError(res, error); } });
+app.get('/api/products', async (req, res) => { try { const result = await pool.query(`SELECT p.id, p.name, p.description, p.price, p.image_url AS "imageUrl", p.in_stock AS "inStock", a.id AS "artisanId", u.name AS "artisanName", a.skill, a.area FROM products p JOIN artisans a ON a.id = p.artisan_id JOIN users u ON u.id = a.user_id WHERE p.name ILIKE $1 AND a.area ILIKE $2 ORDER BY p.created_at DESC`, [`%${req.query.search || ''}%`, `%${req.query.area || ''}%`]); res.json(result.rows); } catch (error) { databaseError(res, error); } });
 
-app.post('/api/auth/signup', async (req, res) => {
-  const { name, email, password, role = 'customer' } = req.body;
-  if (!name || !email || !password || !['customer', 'artisan'].includes(role)) return res.status(400).json({ message: 'Name, email, password, and account type are required.' });
-  if (password.length < 6) return res.status(400).json({ message: 'Password must be at least 6 characters.' });
-  try {
-    const { salt, hash } = hashPassword(password);
-    const result = await pool.query('INSERT INTO users (name, email, password_hash, password_salt, role) VALUES ($1, LOWER($2), $3, $4, $5) RETURNING *', [name.trim(), email.trim(), hash, salt, role]);
-    const session = newToken();
-    await pool.query("INSERT INTO sessions (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 days')", [result.rows[0].id, session]);
-    res.status(201).json({ token: session, user: publicUser(result.rows[0]) });
-  } catch (error) { res.status(error.code === '23505' ? 409 : 500).json({ message: error.code === '23505' ? 'That email is already registered.' : databaseMessage(error) }); }
-});
+app.get('/api/conversations', auth, async (req, res) => { try { const result = await pool.query(`SELECT c.id, c.artisan_id AS "artisanId", u.name AS "artisanName", c.customer_id AS "customerId", cu.name AS "customerName", c.updated_at AS "updatedAt", (SELECT body FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) AS "lastMessage", (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id AND m.sender_id <> $1 AND m.is_read = FALSE) AS "unreadCount" FROM conversations c JOIN artisans a ON a.id = c.artisan_id JOIN users u ON u.id = a.user_id JOIN users cu ON cu.id = c.customer_id WHERE c.customer_id = $1 OR a.user_id = $1 ORDER BY c.updated_at DESC`, [req.user.id]); res.json(result.rows); } catch (error) { databaseError(res, error); } });
+app.post('/api/conversations', auth, async (req, res) => { try { const artisan = (await pool.query('SELECT id FROM artisans WHERE id = $1', [req.body.artisanId])).rows[0]; if (!artisan || req.user.role === 'artisan') return res.status(400).json({ message: 'Choose a valid artisan.' }); const result = await pool.query('INSERT INTO conversations (customer_id, artisan_id) VALUES ($1, $2) ON CONFLICT (customer_id, artisan_id) DO UPDATE SET updated_at = NOW() RETURNING id', [req.user.id, artisan.id]); res.status(201).json({ id: result.rows[0].id }); } catch (error) { databaseError(res, error); } });
+app.get('/api/conversations/:id/messages', auth, async (req, res) => { try { if (!await conversationAccess(req)) return res.status(403).json({ message: 'Conversation not available.' }); await pool.query('UPDATE messages SET is_read = TRUE WHERE conversation_id = $1 AND sender_id <> $2', [req.params.id, req.user.id]); const result = await pool.query(`SELECT m.id, m.body, m.image_url AS "imageUrl", m.type, m.order_id AS "orderId", m.sender_id AS "senderId", u.name AS "senderName", m.created_at AS "createdAt", o.amount, o.platform_fee AS "platformFee", o.artisan_amount AS "artisanAmount", o.description AS "orderDescription", o.status AS "orderStatus", o.product_id AS "productId", o.payment_url AS "paymentUrl", o.payout_status AS "payoutStatus" FROM messages m JOIN users u ON u.id = m.sender_id LEFT JOIN orders o ON o.id = m.order_id WHERE m.conversation_id = $1 ORDER BY m.created_at ASC`, [req.params.id]); res.json(result.rows); } catch (error) { databaseError(res, error); } });
+app.post('/api/conversations/:id/messages', auth, async (req, res) => { try { if (!await conversationAccess(req)) return res.status(403).json({ message: 'Conversation not available.' }); if (containsOffPlatformDetails(req.body.body)) return res.status(400).json({ message: 'For your protection, phone numbers, bank details, and off-platform payment details are not allowed in chat. Pay only inside SkillConnect-HUB to be protected.' }); if (!req.body.body && !req.body.imageUrl) return res.status(400).json({ message: 'Write a message or attach a photo.' }); const result = await pool.query('INSERT INTO messages (conversation_id, sender_id, body, image_url) VALUES ($1, $2, $3, $4) RETURNING id, body, image_url AS "imageUrl", sender_id AS "senderId", created_at AS "createdAt"', [req.params.id, req.user.id, req.body.body || null, req.body.imageUrl || null]); await pool.query('UPDATE conversations SET updated_at = NOW() WHERE id = $1', [req.params.id]); res.status(201).json({ message: result.rows[0] }); } catch (error) { databaseError(res, error); } });
 
-app.post('/api/auth/login', async (req, res) => {
-  const result = await pool.query('SELECT * FROM users WHERE email = LOWER($1)', [req.body.email || '']);
-  const user = result.rows[0];
-  if (!user || !validPassword(req.body.password || '', user.password_salt, user.password_hash)) return res.status(401).json({ message: 'Email or password is incorrect.' });
-  const session = newToken();
-  await pool.query("INSERT INTO sessions (user_id, token, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 days')", [user.id, session]);
-  res.json({ token: session, user: publicUser(user) });
-});
+app.post('/api/conversations/:id/orders', auth, artisanRequired, async (req, res) => { try { const conversation = await conversationAccess(req); if (!conversation || conversation.artisan_user_id !== req.user.id) return res.status(403).json({ message: 'Only the artisan in this conversation can request payment.' }); const amount = Math.round(Number(req.body.amount) * 100); if (!Number.isInteger(amount) || amount <= 0 || !req.body.description) return res.status(400).json({ message: 'Amount and description are required.' }); let productId = null; if (req.body.productId) { const product = (await pool.query('SELECT id FROM products WHERE id = $1 AND artisan_id = $2', [req.body.productId, conversation.artisan_id])).rows[0]; if (!product) return res.status(400).json({ message: 'Product does not belong to this artisan.' }); productId = product.id; } const fee = Math.round(amount * feePercent / 100); const order = (await pool.query('INSERT INTO orders (conversation_id, customer_id, artisan_id, product_id, description, amount, platform_fee, artisan_amount) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, amount, platform_fee AS "platformFee", artisan_amount AS "artisanAmount", description, status, product_id AS "productId"', [conversation.id, conversation.customer_id, conversation.artisan_id, productId, req.body.description, amount, fee, amount - fee])).rows[0]; await pool.query("INSERT INTO messages (conversation_id, sender_id, body, type, order_id) VALUES ($1, $2, $3, 'payment_request', $4)", [req.params.id, req.user.id, req.body.description, order.id]); res.status(201).json({ order }); } catch (error) { databaseError(res, error); } });
 
-app.get('/api/me', auth, async (req, res) => {
-  const artisan = req.user.role === 'artisan' ? (await pool.query('SELECT * FROM artisans WHERE user_id = $1', [req.user.id])).rows[0] : null;
-  res.json({ user: publicUser(req.user), artisan });
-});
+app.delete('/api/orders/:id', auth, artisanRequired, async (req, res) => { try { const order = await orderAccess(req.params.id, req.user.id); if (!order || order.artisan_user_id !== req.user.id) return res.status(404).json({ message: 'Payment request not found.' }); if (order.status !== 'requested') return res.status(400).json({ message: 'Only unpaid requests can be cancelled.' }); await pool.query('DELETE FROM messages WHERE order_id = $1', [req.params.id]); await pool.query('DELETE FROM orders WHERE id = $1', [req.params.id]); res.status(204).end(); } catch (error) { databaseError(res, error); } });
+app.post('/api/orders/:id/pay', auth, async (req, res) => { try { const order = await orderAccess(req.params.id, req.user.id); if (!order || order.customer_id !== req.user.id) return res.status(404).json({ message: 'Payment request not found.' }); if (order.status !== 'requested') return res.status(400).json({ message: 'This payment request is no longer open.' }); const data = await paystack('/transaction/initialize', { method: 'POST', body: JSON.stringify({ email: req.user.email, amount: String(order.amount), reference: `SCH_${order.id}_${crypto.randomBytes(6).toString('hex')}`, callback_url: process.env.PAYSTACK_CALLBACK_URL || undefined, metadata: { order_id: order.id, conversation_id: order.conversation_id } }) }); await pool.query('UPDATE orders SET payment_reference = $1, payment_url = $2, updated_at = NOW() WHERE id = $3', [data.reference, data.authorization_url, order.id]); res.json({ authorizationUrl: data.authorization_url, reference: data.reference }); } catch (error) { res.status(error.status || 500).json({ message: error.status ? error.message : databaseMessage(error) }); } });
+app.get('/api/orders/:id/verify', auth, async (req, res) => { try { const order = await orderAccess(req.params.id, req.user.id); if (!order || order.customer_id !== req.user.id) return res.status(404).json({ message: 'Order not found.' }); if (!order.payment_reference) return res.status(400).json({ message: 'Payment has not been started.' }); const data = await paystack(`/transaction/verify/${encodeURIComponent(order.payment_reference)}`); const updated = await markPaid(order.payment_reference, data); res.json({ order: updated }); } catch (error) { res.status(error.status || 500).json({ message: error.status ? error.message : databaseMessage(error) }); } });
+app.post('/api/orders/:id/deliver', auth, artisanRequired, async (req, res) => { try { const order = await orderAccess(req.params.id, req.user.id); if (!order || order.artisan_user_id !== req.user.id) return res.status(404).json({ message: 'Order not found.' }); if (order.status !== 'paid') return res.status(400).json({ message: 'Only paid orders can be marked delivered.' }); const result = await pool.query("UPDATE orders SET status = 'delivered', delivered_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING id, status, delivered_at AS \"deliveredAt\"", [order.id]); res.json({ order: result.rows[0] }); } catch (error) { databaseError(res, error); } });
+app.post('/api/orders/:id/confirm', auth, async (req, res) => { try { const order = await orderAccess(req.params.id, req.user.id); if (!order || order.customer_id !== req.user.id) return res.status(404).json({ message: 'Order not found.' }); if (order.status !== 'delivered') return res.status(400).json({ message: 'Only delivered orders can be confirmed.' }); const result = await pool.query("UPDATE orders SET status = 'confirmed', confirmed_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING *", [order.id]); await createPayout(result.rows[0]); res.json({ order: (await orderAccess(order.id, req.user.id)) }); } catch (error) { databaseError(res, error); } });
+app.post('/api/orders/:id/dispute', auth, async (req, res) => { try { const order = await orderAccess(req.params.id, req.user.id); if (!order || order.customer_id !== req.user.id) return res.status(404).json({ message: 'Order not found.' }); if (!['paid', 'delivered'].includes(order.status)) return res.status(400).json({ message: 'This order cannot be disputed now.' }); const result = await pool.query("UPDATE orders SET status = 'disputed', updated_at = NOW() WHERE id = $1 RETURNING id, status", [order.id]); res.json({ order: result.rows[0] }); } catch (error) { databaseError(res, error); } });
+app.get('/api/orders', auth, async (req, res) => { try { await autoConfirmDelivered(); const result = await pool.query(`SELECT o.id, o.description, o.amount, o.platform_fee AS "platformFee", o.artisan_amount AS "artisanAmount", o.status, o.payout_status AS "payoutStatus", o.created_at AS "createdAt", o.updated_at AS "updatedAt", u.name AS "customerName", au.name AS "artisanName" FROM orders o JOIN users u ON u.id = o.customer_id JOIN artisans a ON a.id = o.artisan_id JOIN users au ON au.id = a.user_id WHERE o.customer_id = $1 OR a.user_id = $1 ORDER BY o.created_at DESC`, [req.user.id]); const totals = result.rows.reduce((sum, order) => ({ earned: sum.earned + (order.status === 'confirmed' ? Number(order.artisanAmount) : 0), pending: sum.pending + (['paid', 'delivered', 'disputed'].includes(order.status) ? Number(order.artisanAmount) : 0) }), { earned: 0, pending: 0 }); res.json({ orders: result.rows, totals }); } catch (error) { databaseError(res, error); } });
 
-app.post('/api/artisan/profile', auth, artisanRequired, async (req, res) => {
-  const { name, skill, area, bio, startingPrice, imageUrl } = req.body;
-  if (!name || !skill || !area) return res.status(400).json({ message: 'Name, skill, and area are required.' });
-  await pool.query('UPDATE users SET name = $1 WHERE id = $2', [name.trim(), req.user.id]);
-  const result = await pool.query(`INSERT INTO artisans (user_id, skill, area, bio, starting_price, image_url) VALUES ($1, $2, $3, $4, $5, $6)
-    ON CONFLICT (user_id) DO UPDATE SET skill = EXCLUDED.skill, area = EXCLUDED.area, bio = EXCLUDED.bio, starting_price = EXCLUDED.starting_price, image_url = EXCLUDED.image_url RETURNING *`, [req.user.id, skill, area, bio || null, Number(startingPrice) || null, imageUrl || null]);
-  res.status(201).json({ artisan: result.rows[0] });
-});
-
-app.get('/api/artisans', async (req, res) => {
-  const result = await pool.query(`SELECT a.id, a.user_id AS "userId", u.name, a.skill, a.area, a.bio, a.starting_price AS "startingPrice", a.image_url AS "imageUrl" FROM artisans a JOIN users u ON u.id = a.user_id WHERE a.skill ILIKE $1 AND a.area ILIKE $2 ORDER BY a.created_at DESC`, [`%${req.query.service || ''}%`, `%${req.query.area || ''}%`]);
-  res.json(result.rows);
-});
-
-app.get('/api/artisans/:id', async (req, res) => {
-  const artisan = (await pool.query(`SELECT a.id, a.user_id AS "userId", u.name, a.skill, a.area, a.bio, a.starting_price AS "startingPrice", a.image_url AS "imageUrl" FROM artisans a JOIN users u ON u.id = a.user_id WHERE a.id = $1`, [req.params.id])).rows[0];
-  if (!artisan) return res.status(404).json({ message: 'Artisan not found.' });
-  const products = (await pool.query('SELECT id, name, description, price, image_url AS "imageUrl", in_stock AS "inStock" FROM products WHERE artisan_id = $1 ORDER BY created_at DESC', [artisan.id])).rows;
-  res.json({ artisan, products });
-});
-
-app.post('/api/products', auth, artisanRequired, async (req, res) => {
-  const { name, description, price, imageUrl, inStock = true } = req.body;
-  const artisan = (await pool.query('SELECT id FROM artisans WHERE user_id = $1', [req.user.id])).rows[0];
-  if (!artisan) return res.status(400).json({ message: 'Create your artisan profile first.' });
-  if (!name || !price || !imageUrl) return res.status(400).json({ message: 'Product name, price, and photo URL are required.' });
-  const result = await pool.query('INSERT INTO products (artisan_id, name, description, price, image_url, in_stock) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, description, price, image_url AS "imageUrl", in_stock AS "inStock"', [artisan.id, name, description || null, Number(price), imageUrl, inStock]);
-  res.status(201).json({ product: result.rows[0] });
-});
-
-app.put('/api/products/:id', auth, artisanRequired, async (req, res) => {
-  const { name, description, price, imageUrl, inStock } = req.body;
-  const result = await pool.query(`UPDATE products p SET name = $1, description = $2, price = $3, image_url = $4, in_stock = $5 FROM artisans a WHERE p.id = $6 AND p.artisan_id = a.id AND a.user_id = $7 RETURNING p.id, p.name, p.description, p.price, p.image_url AS "imageUrl", p.in_stock AS "inStock"`, [name, description || null, Number(price), imageUrl, inStock, req.params.id, req.user.id]);
-  if (!result.rows[0]) return res.status(404).json({ message: 'Product not found.' });
-  res.json({ product: result.rows[0] });
-});
-
-app.delete('/api/products/:id', auth, artisanRequired, async (req, res) => {
-  const result = await pool.query('DELETE FROM products p USING artisans a WHERE p.id = $1 AND p.artisan_id = a.id AND a.user_id = $2 RETURNING p.id', [req.params.id, req.user.id]);
-  if (!result.rows[0]) return res.status(404).json({ message: 'Product not found.' });
-  res.status(204).end();
-});
-
-app.get('/api/products', async (req, res) => {
-  const result = await pool.query(`SELECT p.id, p.name, p.description, p.price, p.image_url AS "imageUrl", p.in_stock AS "inStock", a.id AS "artisanId", u.name AS "artisanName", a.skill, a.area FROM products p JOIN artisans a ON a.id = p.artisan_id JOIN users u ON u.id = a.user_id WHERE p.name ILIKE $1 AND a.area ILIKE $2 ORDER BY p.created_at DESC`, [`%${req.query.search || ''}%`, `%${req.query.area || ''}%`]);
-  res.json(result.rows);
-});
-
-app.get('/api/conversations', auth, async (req, res) => {
-  const result = await pool.query(`SELECT c.id, c.artisan_id AS "artisanId", u.name AS "artisanName", c.customer_id AS "customerId", cu.name AS "customerName", c.updated_at AS "updatedAt", (SELECT body FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) AS "lastMessage", (SELECT COUNT(*) FROM messages m WHERE m.conversation_id = c.id AND m.sender_id <> $1 AND m.is_read = FALSE) AS "unreadCount" FROM conversations c JOIN artisans a ON a.id = c.artisan_id JOIN users u ON u.id = a.user_id JOIN users cu ON cu.id = c.customer_id WHERE c.customer_id = $1 OR a.user_id = $1 ORDER BY c.updated_at DESC`, [req.user.id]);
-  res.json(result.rows);
-});
-
-app.post('/api/conversations', auth, async (req, res) => {
-  const artisan = (await pool.query('SELECT id FROM artisans WHERE id = $1', [req.body.artisanId])).rows[0];
-  if (!artisan || req.user.role === 'artisan') return res.status(400).json({ message: 'Choose a valid artisan.' });
-  const result = await pool.query('INSERT INTO conversations (customer_id, artisan_id) VALUES ($1, $2) ON CONFLICT (customer_id, artisan_id) DO UPDATE SET updated_at = NOW() RETURNING id', [req.user.id, artisan.id]);
-  res.status(201).json({ id: result.rows[0].id });
-});
-
-async function conversationAccess(req, res) {
-  return (await pool.query('SELECT c.id FROM conversations c JOIN artisans a ON a.id = c.artisan_id WHERE c.id = $1 AND (c.customer_id = $2 OR a.user_id = $2)', [req.params.id, req.user.id])).rows[0];
-}
-app.get('/api/conversations/:id/messages', auth, async (req, res) => {
-  if (!await conversationAccess(req, res)) return res.status(403).json({ message: 'Conversation not available.' });
-  await pool.query('UPDATE messages SET is_read = TRUE WHERE conversation_id = $1 AND sender_id <> $2', [req.params.id, req.user.id]);
-  const result = await pool.query('SELECT m.id, m.body, m.image_url AS "imageUrl", m.sender_id AS "senderId", u.name AS "senderName", m.created_at AS "createdAt" FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.conversation_id = $1 ORDER BY m.created_at ASC', [req.params.id]);
-  res.json(result.rows);
-});
-app.post('/api/conversations/:id/messages', auth, async (req, res) => {
-  if (!await conversationAccess(req, res)) return res.status(403).json({ message: 'Conversation not available.' });
-  if (!req.body.body && !req.body.imageUrl) return res.status(400).json({ message: 'Write a message or attach a photo.' });
-  const result = await pool.query('INSERT INTO messages (conversation_id, sender_id, body, image_url) VALUES ($1, $2, $3, $4) RETURNING id, body, image_url AS "imageUrl", sender_id AS "senderId", created_at AS "createdAt"', [req.params.id, req.user.id, req.body.body || null, req.body.imageUrl || null]);
-  await pool.query('UPDATE conversations SET updated_at = NOW() WHERE id = $1', [req.params.id]);
-  res.status(201).json({ message: result.rows[0] });
-});
+async function markPaid(reference, transaction) { const order = (await pool.query('SELECT * FROM orders WHERE payment_reference = $1', [reference])).rows[0]; if (!order) return null; if (transaction.status && transaction.status !== 'success') return order; if (Number(transaction.amount) !== Number(order.amount)) throw new Error('Paystack amount does not match the order.'); if (order.status === 'requested') return (await pool.query("UPDATE orders SET status = 'paid', paid_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING *", [order.id])).rows[0]; return order; }
+async function createPayout(order) { try { const artisan = (await pool.query('SELECT * FROM artisans WHERE id = $1', [order.artisan_id])).rows[0]; if (!artisan?.recipient_code) { await pool.query('UPDATE orders SET payout_status = $1, payout_error = $2, updated_at = NOW() WHERE id = $3', ['failed', 'Artisan payout details are not configured.', order.id]); return; } const transfer = await paystack('/transfer', { method: 'POST', body: JSON.stringify({ source: 'balance', amount: String(order.artisan_amount), recipient: artisan.recipient_code, reason: `SkillConnect-HUB order ${order.id}` }) }); await pool.query('UPDATE orders SET payout_status = $1, payout_reference = $2, updated_at = NOW() WHERE id = $3', ['processing', transfer.reference, order.id]); } catch (error) { await pool.query('UPDATE orders SET payout_status = $1, payout_error = $2, updated_at = NOW() WHERE id = $3', ['failed', error.message, order.id]); } }
+async function autoConfirmDelivered() { const rows = (await pool.query("UPDATE orders SET status = 'confirmed', confirmed_at = NOW(), updated_at = NOW() WHERE status = 'delivered' AND delivered_at <= NOW() - INTERVAL '48 hours' RETURNING *")).rows; for (const order of rows) await createPayout(order); }
+setInterval(() => autoConfirmDelivered().catch((error) => console.error(`Automatic confirmation failed: ${error.message}`)), 15 * 60 * 1000).unref();
 
 pool.query('SELECT 1').then(() => console.log('PostgreSQL connected.')).catch((error) => console.error(`Database connection failed: ${databaseMessage(error)} Detail: ${error.message}`));
 pool.on('error', (error) => console.error(`PostgreSQL pool error: ${error.message}`));
+app.use((error, _req, res, _next) => { console.error(error); res.status(500).json({ message: databaseMessage(error) }); });
 app.listen(port, () => console.log(`SkillConnect-HUB API running on port ${port}`));

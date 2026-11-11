@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE TABLE IF NOT EXISTS artisans (
   id SERIAL PRIMARY KEY, user_id INTEGER UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   skill VARCHAR(80) NOT NULL, area VARCHAR(120) NOT NULL, bio TEXT, starting_price INTEGER, image_url TEXT,
-  rating NUMERIC(2, 1) DEFAULT 0, created_at TIMESTAMPTZ DEFAULT NOW()
+  rating NUMERIC(2, 1) DEFAULT 0, bank_name VARCHAR(120), bank_code VARCHAR(30), account_number VARCHAR(20),
+  recipient_code VARCHAR(120), created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE TABLE IF NOT EXISTS products (
   id SERIAL PRIMARY KEY, artisan_id INTEGER NOT NULL REFERENCES artisans(id) ON DELETE CASCADE,
@@ -26,7 +27,37 @@ CREATE TABLE IF NOT EXISTS conversations (
 );
 CREATE TABLE IF NOT EXISTS messages (
   id SERIAL PRIMARY KEY, conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, body TEXT, image_url TEXT, is_read BOOLEAN DEFAULT FALSE,
+  sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, body TEXT, image_url TEXT, type VARCHAR(30) NOT NULL DEFAULT 'text', order_id INTEGER,
+  is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW(), CHECK (body IS NOT NULL OR image_url IS NOT NULL)
 );
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE;
+ALTER TABLE artisans ADD COLUMN IF NOT EXISTS bank_name VARCHAR(120);
+ALTER TABLE artisans ADD COLUMN IF NOT EXISTS bank_code VARCHAR(30);
+ALTER TABLE artisans ADD COLUMN IF NOT EXISTS account_number VARCHAR(20);
+ALTER TABLE artisans ADD COLUMN IF NOT EXISTS recipient_code VARCHAR(120);
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS type VARCHAR(30) NOT NULL DEFAULT 'text';
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS order_id INTEGER;
+
+CREATE TABLE IF NOT EXISTS orders (
+  id SERIAL PRIMARY KEY,
+  conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+  customer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  artisan_id INTEGER NOT NULL REFERENCES artisans(id) ON DELETE CASCADE,
+  product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+  description TEXT NOT NULL,
+  amount INTEGER NOT NULL CHECK (amount > 0),
+  platform_fee INTEGER NOT NULL CHECK (platform_fee >= 0),
+  artisan_amount INTEGER NOT NULL CHECK (artisan_amount >= 0),
+  status VARCHAR(20) NOT NULL DEFAULT 'requested' CHECK (status IN ('requested', 'paid', 'delivered', 'confirmed', 'refunded', 'disputed')),
+  payment_reference VARCHAR(120) UNIQUE,
+  payment_url TEXT,
+  paid_at TIMESTAMPTZ,
+  delivered_at TIMESTAMPTZ,
+  confirmed_at TIMESTAMPTZ,
+  payout_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+  payout_reference VARCHAR(120),
+  payout_error TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
