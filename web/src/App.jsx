@@ -15,6 +15,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [route, setRoute] = useState(window.location.hash.slice(1) || 'home');
   const [authOpen, setAuthOpen] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
 
   useEffect(() => {
     const onHashChange = () => setRoute(window.location.hash.slice(1) || 'home');
@@ -23,17 +24,20 @@ export default function App() {
     if (localStorage.token) {
       request('/me')
         .then((data) => setUser(data.user))
-        .catch(() => localStorage.removeItem('token'));
+        .catch(() => localStorage.removeItem('token'))
+        .finally(() => setAuthLoading(false));
     } else if (supabase) {
+      setAuthLoading(true);
       supabase.auth.getSession().then(async ({ data }) => {
         const accessToken = data.session?.access_token;
-        if (!accessToken) return;
+        if (!accessToken) { setAuthLoading(false); return; }
         try {
           const result = await request('/auth/supabase', { method: 'POST', body: JSON.stringify({ accessToken, role: localStorage.googleRole || 'customer' }) });
           localStorage.token = result.token;
           localStorage.removeItem('googleRole');
           setUser(result.user);
         } catch (error) { console.error('Supabase sign-in exchange failed:', error.message); }
+        finally { setAuthLoading(false); }
       });
     }
 
@@ -68,6 +72,8 @@ export default function App() {
           </nav>
         </div>
       </header>
+
+      {authLoading && <div className="auth-loading" role="status"><div className="auth-loading-card"><span className="loading-dot" />Signing you in securely…</div></div>}
 
       {route === 'home' && <Home />}
       {route.startsWith('inbox') && <Inbox user={user} askLogin={askLogin} />}

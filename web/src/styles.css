@@ -69,6 +69,9 @@
   .close { @apply absolute right-4 top-2 border-0 bg-transparent text-3xl text-slate; }
   .google-button { @apply flex w-full cursor-pointer items-center justify-center gap-3 rounded-lg border border-stone bg-white px-4 py-3 font-bold text-charcoal transition-colors hover:border-green hover:bg-cream focus:outline-none focus:ring-2 focus:ring-green/30; }
   .google-button svg { @apply h-5 w-5 text-charcoal; }
+  .auth-loading { @apply fixed inset-0 z-50 grid place-items-center bg-charcoal/30 p-4; }
+  .auth-loading-card { @apply flex items-center gap-3 rounded-xl border border-stone bg-white px-5 py-4 font-bold text-charcoal shadow-xl; }
+  .loading-dot { @apply h-3 w-3 animate-pulse rounded-full bg-green; }
   .form { @apply grid gap-3.5; }
   .switch { @apply mt-4; }
   .error { @apply rounded-lg bg-[#FCEDEA] p-2.5 text-danger; }
