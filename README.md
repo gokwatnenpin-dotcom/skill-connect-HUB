@@ -34,10 +34,10 @@ PAYSTACK_FEE_PERCENT=10
 PAYSTACK_CALLBACK_URL=http://localhost:5173/#inbox
 ```
 
-3. Load the schema:
+3. Load the schema once:
 
 ```bash
-psql "$DATABASE_URL" -f supabase/schema.sql
+npm run db:setup
 ```
 
 4. Install and run both applications:
@@ -75,4 +75,30 @@ Email reminders require `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and 
 
 Admin accounts are created at backend startup from `ADMIN_EMAIL` and `ADMIN_PASSWORD`; public signup cannot create admins. Set `VERIFICATION_ENCRYPTION_KEY` before accepting identity submissions. Admin access is at `#admin` after logging in.
 
-Cloudinary uploads and real-time sockets are not included yet.
+## Deploy
+
+Photos are uploaded directly through the backend to Cloudinary. Public profile, product, chat, and review photos use Cloudinary upload assets. Verification ID photos and selfies use authenticated Cloudinary assets; only an authenticated admin can request short-lived signed viewing URLs.
+
+### Render
+
+Push this repository to GitHub, create a Render Blueprint from `render.yaml`, or create the PostgreSQL database and web service manually. The service uses `npm install && npm install --prefix web && npm run build` and starts with `npm start`. The Render database created by the Blueprint is named `skillconnect_hub`; run `npm run db:setup` once against its `DATABASE_URL`.
+
+Set these values in the Render web service: `CLIENT_URL` (the exact Vercel URL), Paystack test keys (`PAYSTACK_SECRET_KEY`, `PAYSTACK_PUBLIC_KEY`, `PAYSTACK_WEBHOOK_SECRET`, `PAYSTACK_CALLBACK_URL`), `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and a long random `VERIFICATION_ENCRYPTION_KEY`. `NODE_ENV=production` is set by `render.yaml`; the backend uses Render's `PORT` and PostgreSQL SSL in production.
+
+### Vercel
+
+Create a Vercel project with the repository root directory set to `web`. Use build command `npm run build`, output directory `dist`, and add `VITE_API_URL=https://YOUR-RENDER-SERVICE.onrender.com/api`. The `web/vercel.json` rewrite keeps hash routes and direct page refreshes working.
+
+### Paystack webhook
+
+After the Render service is live, paste this exact URL into Paystack (replace the hostname):
+
+```text
+https://YOUR-RENDER-SERVICE.onrender.com/api/paystack/webhook
+```
+
+Use Paystack test keys for the application demo. Render's free service can sleep, so the first request after inactivity may take up to about a minute.
+
+### Local environment files
+
+Backend names are in `.env.example`. Frontend names are in `web/.env.example`. `.env` files are ignored by Git; never commit real Paystack, Cloudinary, database, SMTP, admin, or encryption values. Real-time sockets are intentionally not included: chat uses polling as requested.

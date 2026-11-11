@@ -1,3 +1,9 @@
+databases:
+  - name: skillconnect-hub-db
+    databaseName: skillconnect_hub
+    user: skillconnect
+    plan: free
+
 services:
   - type: web
     name: skillconnect-hub-api
@@ -6,6 +12,32 @@ services:
     startCommand: npm start
     envVars:
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: skillconnect-hub-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
       - key: CLIENT_URL
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: PAYSTACK_PUBLIC_KEY
+        sync: false
+      - key: PAYSTACK_WEBHOOK_SECRET
+        sync: false
+      - key: PAYSTACK_FEE_PERCENT
+        value: "10"
+      - key: PAYSTACK_CALLBACK_URL
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: VERIFICATION_ENCRYPTION_KEY
         sync: false

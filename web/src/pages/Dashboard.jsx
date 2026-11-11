@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { request } from '../api.js';
+import { request, uploadFile } from '../api.js';
 
 export default function Dashboard({ user }) {
   const [profile, setProfile] = useState({});
@@ -18,7 +18,7 @@ export default function Dashboard({ user }) {
 
   async function saveProfile(event) {
     event.preventDefault();
-    try { await request('/artisan/profile', { method: 'POST', body: JSON.stringify(Object.fromEntries(new FormData(event.currentTarget))) }); setNotice('Profile saved.'); load(); } catch (error) { setNotice(error.message); }
+    try { const values = Object.fromEntries(new FormData(event.currentTarget)); if (values.imageFile?.name) values.imageUrl = (await uploadFile(values.imageFile, 'profile')).url; delete values.imageFile; await request('/artisan/profile', { method: 'POST', body: JSON.stringify(values) }); setNotice('Profile saved.'); load(); } catch (error) { setNotice(error.message); }
   }
 
   async function savePayout(event) {
@@ -30,28 +30,19 @@ export default function Dashboard({ user }) {
     event.preventDefault();
     try {
       const values = Object.fromEntries(new FormData(event.currentTarget));
-      values.idPhotoUrl = await fileData(values.idPhotoUrl);
-      values.selfieUrl = await fileData(values.selfieUrl);
+      values.idPhotoAssetId = (await uploadFile(values.idPhotoUrl, 'id')).assetId;
+      values.selfieAssetId = (await uploadFile(values.selfieUrl, 'id')).assetId;
+      delete values.idPhotoUrl; delete values.selfieUrl;
       await request('/artisan/verification', { method: 'POST', body: JSON.stringify(values) });
       setNotice('Verification submitted.');
       load();
     } catch (error) { setNotice(error.message); }
   }
 
-  function fileData(file) {
-    if (!file || !file.name) return '';
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  }
-
   async function saveProduct(event) {
     event.preventDefault();
     const values = Object.fromEntries(new FormData(event.currentTarget));
-    try { await request(editing ? `/products/${editing.id}` : '/products', { method: editing ? 'PUT' : 'POST', body: JSON.stringify({ ...values, price: Number(values.price), inStock: values.inStock === 'true' }) }); event.currentTarget.reset(); setEditing(null); setNotice(editing ? 'Product updated.' : 'Product added.'); load(); } catch (error) { setNotice(error.message); }
+    try { if (values.image?.name) values.imageUrl = (await uploadFile(values.image, 'product')).url; else if (editing) values.imageUrl = editing.imageUrl; delete values.image; await request(editing ? `/products/${editing.id}` : '/products', { method: editing ? 'PUT' : 'POST', body: JSON.stringify({ ...values, price: Number(values.price), inStock: values.inStock === 'true' }) }); event.currentTarget.reset(); setEditing(null); setNotice(editing ? 'Product updated.' : 'Product added.'); load(); } catch (error) { setNotice(error.message); }
   }
 
   async function removeProduct(id) {
@@ -72,7 +63,7 @@ export default function Dashboard({ user }) {
         <label>Skill<input name="skill" defaultValue={profile.skill || ''} required /></label>
         <label>Area<input name="area" defaultValue={profile.area || ''} required /></label>
         <label>Short bio<textarea name="bio" defaultValue={profile.bio || ''} /></label>
-        <label>Profile photo URL<input name="imageUrl" defaultValue={profile.image_url || ''} placeholder="https://..." /></label>
+        <label>Profile photo<input name="imageFile" type="file" accept="image/*" /></label>
         <label>Starting price<input name="startingPrice" type="number" defaultValue={profile.starting_price || ''} /></label>
         <button className="primary">Save profile</button>
       </form>
@@ -100,7 +91,7 @@ export default function Dashboard({ user }) {
       <form className="form panel" key={editing?.id || 'new-product'} onSubmit={saveProduct}>
         <h2>{editing ? 'Edit product' : 'Add product'}</h2>
         <label>Product name<input name="name" defaultValue={editing?.name || ''} required /></label>
-        <label>Photo URL<input name="imageUrl" defaultValue={editing?.imageUrl || ''} placeholder="https://..." required /></label>
+        <label>Photo<input name="image" type="file" accept="image/*" required={!editing} /></label>
         <label>Price<input name="price" type="number" defaultValue={editing?.price || ''} required /></label>
         <label>Description<textarea name="description" defaultValue={editing?.description || ''} /></label>
         <label className="check"><input name="inStock" type="checkbox" value="true" defaultChecked={editing ? editing.inStock : true} /> In stock</label>

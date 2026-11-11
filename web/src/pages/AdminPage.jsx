@@ -53,7 +53,8 @@ function Overview({ data }) {
 
 function ArtisanVerification({ artisans, reload }) {
   async function decide(id, decision) { const reason = decision === 'rejected' ? prompt('Reason for rejection') : ''; await request(`/admin/artisans/${id}/decision`, { method: 'POST', body: JSON.stringify({ decision, reason }) }); reload(); }
-  return <><h2>Pending verification</h2><AdminTable headers={['Artisan', 'Skill', 'Area', 'ID', 'Files', 'Action']} rows={artisans.map((artisan) => [<><strong>{artisan.name}</strong><br /><small>{artisan.email}</small></>, artisan.skill, artisan.area, `${artisan.idType || '—'} · ${artisan.idLast4 || '—'}`, <>{artisan.idPhotoUrl && <a href={artisan.idPhotoUrl} target="_blank">ID photo</a>} {artisan.selfieUrl && <a href={artisan.selfieUrl} target="_blank">Selfie</a>}</>, <><button className="primary" onClick={() => decide(artisan.id, 'approved')}>Approve</button><button className="link danger" onClick={() => decide(artisan.id, 'rejected')}>Reject</button></>])} /></>;
+  async function viewPrivate(id) { const files = await request(`/admin/artisans/${id}/private-images`); if (files.idPhotoUrl) window.open(files.idPhotoUrl, '_blank', 'noopener'); if (files.selfieUrl) window.open(files.selfieUrl, '_blank', 'noopener'); }
+  return <><h2>Pending verification</h2><AdminTable headers={['Artisan', 'Skill', 'Area', 'ID', 'Files', 'Action']} rows={artisans.map((artisan) => [<><strong>{artisan.name}</strong><br /><small>{artisan.email}</small></>, artisan.skill, artisan.area, `${artisan.idType || '—'} · ${artisan.idLast4 || '—'}`, <button className="link" disabled={!artisan.hasIdPhoto && !artisan.hasSelfie} onClick={() => viewPrivate(artisan.id)}>View private documents</button>, <><button className="primary" onClick={() => decide(artisan.id, 'approved')}>Approve</button><button className="link danger" onClick={() => decide(artisan.id, 'rejected')}>Reject</button></>])} /></>;
 }
 
 function Disputes({ disputes, reload }) {

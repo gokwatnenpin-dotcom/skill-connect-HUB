@@ -18,6 +18,17 @@ export async function request(path, options = {}) {
   return data;
 }
 
+export async function uploadFile(file, kind) {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('kind', kind);
+  const response = await fetch(`${API}/uploads`, { method: 'POST', headers: localStorage.token ? { Authorization: `Bearer ${localStorage.token}` } : {}, body: form });
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!response.ok) throw new Error(data.message || 'Photo upload failed.');
+  return data;
+}
+
 export function go(path) {
   window.location.hash = path;
 }

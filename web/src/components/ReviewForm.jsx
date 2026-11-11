@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { request } from '../api.js';
+import { request, uploadFile } from '../api.js';
 
 export default function ReviewForm({ orderId, existing, onDone, onCancel }) {
   const [error, setError] = useState('');
@@ -14,7 +14,7 @@ export default function ReviewForm({ orderId, existing, onDone, onCancel }) {
         body: JSON.stringify({
           rating: Number(form.get('rating')),
           comment: form.get('comment'),
-          photoUrl: form.get('photoUrl'),
+          photoUrl: form.get('photo')?.name ? (await uploadFile(form.get('photo'), 'review')).url : existing?.photoUrl || '',
         }),
       });
       onDone();
@@ -38,7 +38,7 @@ export default function ReviewForm({ orderId, existing, onDone, onCancel }) {
           </select>
         </label>
         <label>Comment<textarea name="comment" maxLength="500" defaultValue={existing?.comment || ''} placeholder="Optional, up to 500 characters" /></label>
-        <label>Photo URL<input name="photoUrl" defaultValue={existing?.photoUrl || ''} placeholder="https://..." /></label>
+        <label>Photo<input name="photo" type="file" accept="image/*" /></label>
         <div>
           <button className="primary">Save review</button>
           <button type="button" className="link" onClick={onCancel}>Cancel</button>

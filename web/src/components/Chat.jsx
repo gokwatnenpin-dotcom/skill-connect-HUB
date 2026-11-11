@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { request } from '../api.js';
+import { request, uploadFile } from '../api.js';
 import PaymentCard from './PaymentCard.jsx';
 import PaymentRequestForm from './PaymentRequestForm.jsx';
 import ReviewForm from './ReviewForm.jsx';
@@ -7,7 +7,7 @@ import ReviewForm from './ReviewForm.jsx';
 export default function Chat({ id, conversation, user }) {
   const [messages, setMessages] = useState([]);
   const [body, setBody] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  const [imageFile, setImageFile] = useState(null);
   const [error, setError] = useState('');
   const [orderForm, setOrderForm] = useState(false);
   const [reviewOrder, setReviewOrder] = useState(null);
@@ -28,11 +28,12 @@ export default function Chat({ id, conversation, user }) {
 
   async function send(event) {
     event.preventDefault();
-    if (!body.trim() && !imageUrl) return;
+    if (!body.trim() && !imageFile) return;
     try {
+      const imageUrl = imageFile ? (await uploadFile(imageFile, 'chat')).url : '';
       await request(`/conversations/${id}/messages`, { method: 'POST', body: JSON.stringify({ body, imageUrl }) });
       setBody('');
-      setImageUrl('');
+      setImageFile(null);
       setError('');
       load();
     } catch (requestError) {
@@ -43,9 +44,7 @@ export default function Chat({ id, conversation, user }) {
   function attach(event) {
     const file = event.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setImageUrl(reader.result);
-    reader.readAsDataURL(file);
+    setImageFile(file);
   }
 
   async function reportMessage(messageId) {
