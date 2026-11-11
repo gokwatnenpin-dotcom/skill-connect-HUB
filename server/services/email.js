@@ -1,13 +1,20 @@
-import nodemailer from 'nodemailer';
-
 export function createMailer() {
-  if (!process.env.SMTP_HOST || !process.env.SMTP_USER) return null;
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: Number(process.env.SMTP_PORT || 587) === 465,
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  });
+  if (!process.env.BREVO_API_KEY || !process.env.BREVO_SENDER_EMAIL) return null;
+  return {
+    async sendMail({ to, subject, text }) {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: { accept: 'application/json', 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          sender: { email: process.env.BREVO_SENDER_EMAIL, name: process.env.BREVO_SENDER_NAME || 'SkillConnect-HUB' },
+          to: [{ email: to }],
+          subject,
+          textContent: text,
+        }),
+      });
+      if (!response.ok) throw new Error(`Brevo email failed with status ${response.status}`);
+    },
+  };
 }
 
 export async function sendReviewReminder(mailer, order) {

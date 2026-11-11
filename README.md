@@ -78,7 +78,7 @@ The frontend is at `http://localhost:5173` and the backend is at `http://localho
 
 For hosted payments, set the Paystack webhook URL to `https://YOUR-API-DOMAIN/api/paystack/webhook`. Paystack must be able to reach this URL over HTTPS. The backend verifies the signature and transaction amount before marking an order paid.
 
-Email reminders require these backend variables in `server/.env`: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and optionally `SMTP_FROM`. Without SMTP settings, the rest of the review flow works but reminders are not sent. These variables are included in `server/.env.example`.
+Email reminders use Brevo's transactional email API. Add `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, and optionally `BREVO_SENDER_NAME` to `server/.env`. The sender email must be verified in Brevo. Without these settings, the rest of the review flow works but reminders are not sent.
 
 Admin accounts are created at backend startup from `ADMIN_EMAIL` and `ADMIN_PASSWORD`; public signup cannot create admins. Set `VERIFICATION_ENCRYPTION_KEY` before accepting identity submissions. Admin access is at `#admin` after logging in.
 
