@@ -8,6 +8,7 @@ import { createMailer } from './services/email.js';
 import { signedPrivateImage } from './services/cloudinary.js';
 import authRoutes from './routes/auth.js';
 import uploadRoutes from './routes/uploads.js';
+import { runMigrations } from './migrations/index.js';
 import { pool } from '../src/db.js';
 
 const app = express();
@@ -143,7 +144,17 @@ setInterval(() => autoConfirmDelivered().catch((error) => console.error(`Automat
 setInterval(() => sendReviewReminders().catch((error) => console.error(`Review reminder scan failed: ${error.message}`)), 60 * 60 * 1000).unref();
 
 async function ensureAdmin() { if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) return; const { salt, hash } = hashPassword(process.env.ADMIN_PASSWORD); await pool.query(`INSERT INTO users (name, email, password_hash, password_salt, role) VALUES ('Administrator', LOWER($1), $2, $3, 'admin') ON CONFLICT (email) DO UPDATE SET role = 'admin', password_hash = EXCLUDED.password_hash, password_salt = EXCLUDED.password_salt, suspended = FALSE`, [process.env.ADMIN_EMAIL, hash, salt]); console.log(`Admin account ready: ${process.env.ADMIN_EMAIL}`); }
-pool.query('SELECT 1').then(async () => { await ensureAdmin(); console.log('PostgreSQL connected.'); }).catch((error) => console.error(`Database connection failed: ${databaseMessage(error)} Detail: ${error.message}`));
 pool.on('error', (error) => console.error(`PostgreSQL pool error: ${error.message}`));
 app.use((error, _req, res, _next) => { console.error(error); res.status(500).json({ message: databaseMessage(error) }); });
-app.listen(port, () => console.log(`SkillConnect-HUB API running on port ${port}`));
+async function start() {
+  try {
+    await pool.query('SELECT 1');
+    await runMigrations();
+    await ensureAdmin();
+    console.log('PostgreSQL connected and schema is ready.');
+  } catch (error) {
+    console.error(`Database connection failed: ${databaseMessage(error)} Detail: ${error.message}`);
+  }
+  app.listen(port, () => console.log(`SkillConnect-HUB API running on port ${port}`));
+}
+start();
