@@ -19,6 +19,8 @@ services:
         value: production
       - key: CLIENT_URL
         sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
       - key: PAYSTACK_SECRET_KEY
         sync: false
       - key: PAYSTACK_PUBLIC_KEY

@@ -67,6 +67,7 @@ The frontend is at `http://localhost:5173` and the backend is at `http://localho
 ## Current features
 
 - Customer and artisan signup/login with hashed passwords and login tokens.
+- Optional Google sign-in with backend-verified Google ID tokens.
 - Empty database on first setup: no seeded artisans, products, or sample cards.
 - Artisan profile creation/editing and product add/edit/delete.
 - Public skill/area search, artisan profile pages, product pages, and product lists.
@@ -95,6 +96,10 @@ Set these values in the Render web service: `CLIENT_URL` (the exact Vercel URL),
 ### Vercel
 
 Create a Vercel project with the repository root directory set to `web`. Use build command `npm run build`, output directory `dist`, and add `VITE_API_URL=https://YOUR-RENDER-SERVICE.onrender.com/api`. The `web/vercel.json` rewrite keeps hash routes and direct page refreshes working.
+
+### Google sign-in
+
+Create a Google OAuth web client ID, add your Vercel domain to its authorized JavaScript origins, then set the same client ID as `GOOGLE_CLIENT_ID` on Render and `VITE_GOOGLE_CLIENT_ID` on Vercel. The first Google sign-in asks whether the new account is a customer or artisan. The backend verifies the Google ID token before creating a SkillConnect-HUB session. Google Identity Services uses the browser credential response and server-side token verification. [Google button setup](https://developers.google.com/identity/gsi/web/guides/display-button) · [Google backend verification](https://developers.google.com/identity/sign-in/web/backend-auth)
 
 ### Paystack webhook
 
