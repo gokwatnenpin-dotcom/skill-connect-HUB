@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { request, uploadFile } from '../api.js';
 
-export default function Dashboard({ user }) {
+export default function Dashboard({ user, onLogout }) {
   const [profile, setProfile] = useState({});
   const [products, setProducts] = useState([]);
   const [notice, setNotice] = useState('');
@@ -51,11 +51,12 @@ export default function Dashboard({ user }) {
     load();
   }
 
-  if (!user || user.role !== 'artisan') return <main className="container content"><h1>Artisan dashboard</h1><p>Log in with an artisan account to continue.</p></main>;
+  if (!user) return <main className="container content"><h1>Profile</h1><p>Log in to view your profile.</p></main>;
+  if (user.role !== 'artisan') return <main className="container content"><div className="profile-panel"><p className="eyebrow">Your account</p><h1>{user.name}</h1><p className="muted">{user.email}</p><button className="secondary" onClick={onLogout}>Log out</button></div></main>;
 
   return <main className="container content dashboard">
     <p className="eyebrow">Artisan dashboard</p>
-    <h1>Your profile and products</h1>
+    <div className="profile-title-row"><div><h1>Your profile and products</h1><p className="muted">Manage what customers see and sell directly from your profile.</p></div><button className="secondary" onClick={onLogout}>Log out</button></div>
     <div className="dashboard-grid">
       <form className="form panel" key={profile.id || 'profile'} onSubmit={saveProfile}>
         <h2>Profile</h2>

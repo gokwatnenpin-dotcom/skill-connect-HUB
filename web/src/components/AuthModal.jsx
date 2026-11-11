@@ -47,15 +47,13 @@ export default function AuthModal({ onClose, onLogin }) {
           {signup && <label>Name<input name="name" required /></label>}
           <label>Email<input name="email" type="email" required /></label>
           <label>Password<input name="password" type="password" minLength="6" required /></label>
-          {signup && (
-            <label>
-              Account type
-              <select name="role" value={role} onChange={(event) => setRole(event.target.value)}>
-                <option value="customer">Customer</option>
-                <option value="artisan">Artisan</option>
-              </select>
-            </label>
-          )}
+          <label>
+            Account type
+            <select name="role" value={role} onChange={(event) => setRole(event.target.value)}>
+              <option value="customer">Customer</option>
+              <option value="artisan">Artisan</option>
+            </select>
+          </label>
           <button className="primary full">{signup ? 'Create account' : 'Log in'}</button>
         </form>
 
