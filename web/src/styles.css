@@ -96,6 +96,8 @@
   .dashboard-grid { @apply mt-6 grid gap-5 md:grid-cols-2; }
   .profile-title-row { @apply mt-2 flex items-start justify-between gap-5; }
   .profile-panel { @apply max-w-xl rounded-xl border border-stone bg-white p-6; }
+  .account-delete { @apply mt-8 border-t border-stone pt-5; }
+  .danger-button { @apply cursor-pointer rounded-lg border border-danger bg-white px-4 py-3 font-bold text-danger hover:bg-[#FCEDEA] disabled:opacity-60; }
   .panel { @apply rounded-xl border border-stone bg-white p-5; }
   .check { @apply flex items-center gap-2; }
   .check input { @apply m-0 w-auto; }

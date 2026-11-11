@@ -73,6 +73,7 @@ async function auth(req, res, next) {
   try {
     const result = await pool.query('SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = $1 AND s.expires_at > NOW()', [value.slice(7)]);
     if (!result.rows[0]) return res.status(401).json({ message: 'Your session has expired.' });
+    if (result.rows[0].deletion_requested_at) return res.status(403).json({ message: 'This account is scheduled for deletion.' });
     req.user = result.rows[0]; next();
   } catch (error) { databaseError(res, error); }
 }
@@ -86,6 +87,7 @@ app.get('/api/health', health);
 app.use('/api/auth', authRoutes({ pool, hashPassword, validPassword, newToken, publicUser, databaseMessage }));
 app.use('/api/uploads', uploadRoutes(auth));
 app.get('/api/me', auth, async (req, res) => { try { const artisan = req.user.role === 'artisan' ? (await pool.query('SELECT * FROM artisans WHERE user_id = $1', [req.user.id])).rows[0] : null; res.json({ user: publicUser(req.user), artisan }); } catch (error) { databaseError(res, error); } });
+app.post('/api/me/delete-account', auth, async (req, res) => { try { const result = await pool.query("UPDATE users SET deletion_requested_at = COALESCE(deletion_requested_at, NOW()) WHERE id = $1 RETURNING deletion_requested_at AS \"deletionRequestedAt\", deletion_requested_at + INTERVAL '7 days' AS \"scheduledDeletionAt\"", [req.user.id]); await pool.query('DELETE FROM sessions WHERE user_id = $1', [req.user.id]); res.json({ ...result.rows[0], message: 'Account deletion is scheduled in 7 days.' }); } catch (error) { databaseError(res, error); } });
 app.post('/api/artisan/verification', auth, artisanRequired, async (req, res) => { try { const { idType, idNumber, idPhotoAssetId, selfieAssetId } = req.body; if (!idType || !idNumber || !idPhotoAssetId || !selfieAssetId) return res.status(400).json({ message: 'ID type, ID number, ID photo, and selfie are required.' }); const result = await pool.query(`UPDATE artisans SET verification_status = 'pending', verification_id_type = $1, verification_id_last4 = $2, verification_id_ciphertext = $3, verification_id_photo_url = $4, verification_selfie_url = $5, verification_rejection_reason = NULL, verified_at = NULL WHERE user_id = $6 RETURNING verification_status AS "verificationStatus", verification_id_type AS "idType", verification_id_last4 AS "idLast4"`, [idType, idNumber.slice(-4), encryptValue(idNumber), idPhotoAssetId, selfieAssetId, req.user.id]); if (!result.rows[0]) return res.status(400).json({ message: 'Create your artisan profile first.' }); res.json({ verification: result.rows[0] }); } catch (error) { databaseError(res, error); } });
 app.post('/api/artisan/profile', auth, artisanRequired, async (req, res) => { try { const { name, skill, area, bio, startingPrice, imageUrl } = req.body; if (!name || !skill || !area) return res.status(400).json({ message: 'Name, skill, and area are required.' }); await pool.query('UPDATE users SET name = $1 WHERE id = $2', [name.trim(), req.user.id]); const result = await pool.query(`INSERT INTO artisans (user_id, skill, area, bio, starting_price, image_url) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (user_id) DO UPDATE SET skill = EXCLUDED.skill, area = EXCLUDED.area, bio = EXCLUDED.bio, starting_price = EXCLUDED.starting_price, image_url = EXCLUDED.image_url RETURNING *`, [req.user.id, skill, area, bio || null, Number(startingPrice) || null, imageUrl || null]); res.status(201).json({ artisan: result.rows[0] }); } catch (error) { databaseError(res, error); } });
 app.post('/api/artisan/payout-details', auth, artisanRequired, async (req, res) => { try { const { bankName, bankCode, accountNumber } = req.body; if (!bankName || !bankCode || !/^\d{10}$/.test(accountNumber || '')) return res.status(400).json({ message: 'Bank name, bank code, and a 10-digit account number are required.' }); const artisan = (await pool.query('SELECT id FROM artisans WHERE user_id = $1', [req.user.id])).rows[0]; if (!artisan) return res.status(400).json({ message: 'Create your artisan profile first.' }); const recipient = await paystack('/transferrecipient', { method: 'POST', body: JSON.stringify({ type: 'nuban', name: req.user.name, account_number: accountNumber, bank_code: bankCode, currency: 'NGN' }) }); const result = await pool.query('UPDATE artisans SET bank_name = $1, bank_code = $2, account_number = $3, recipient_code = $4 WHERE id = $5 RETURNING bank_name AS "bankName", bank_code AS "bankCode", account_number AS "accountNumber"', [bankName, bankCode, accountNumber, recipient.recipient_code, artisan.id]); res.json({ payout: result.rows[0] }); } catch (error) { res.status(error.status || 500).json({ message: error.status ? error.message : databaseMessage(error) }); } });
@@ -150,6 +152,7 @@ async function start() {
   try {
     await pool.query('SELECT 1');
     await runMigrations();
+    await pool.query("DELETE FROM users WHERE deletion_requested_at <= NOW() - INTERVAL '7 days'");
     await ensureAdmin();
     console.log('PostgreSQL connected and schema is ready.');
   } catch (error) {
@@ -158,3 +161,4 @@ async function start() {
   app.listen(port, () => console.log(`SkillConnect-HUB API running on port ${port}`));
 }
 start();
+setInterval(() => pool.query("DELETE FROM users WHERE deletion_requested_at <= NOW() - INTERVAL '7 days'").catch((error) => console.error(`Scheduled account deletion failed: ${error.message}`)), 60 * 60 * 1000).unref();

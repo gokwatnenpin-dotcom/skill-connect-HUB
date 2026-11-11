@@ -6,6 +6,8 @@ export default function Dashboard({ user, onLogout, onProfileUpdated }) {
   const [products, setProducts] = useState([]);
   const [notice, setNotice] = useState('');
   const [editing, setEditing] = useState(null);
+  const [deletionNotice, setDeletionNotice] = useState('');
+  const [deletionBusy, setDeletionBusy] = useState(false);
 
   function load() {
     request('/me').then((data) => {
@@ -51,8 +53,20 @@ export default function Dashboard({ user, onLogout, onProfileUpdated }) {
     load();
   }
 
+  async function deleteAccount() {
+    const confirmed = window.confirm('Are you sure you want to delete your account? Your account will be scheduled for deletion after 7 days.');
+    if (!confirmed) return;
+    setDeletionBusy(true);
+    try {
+      const result = await request('/me/delete-account', { method: 'POST', body: JSON.stringify({}) });
+      localStorage.removeItem('token');
+      setDeletionNotice(`Account deletion is scheduled for ${new Date(result.scheduledDeletionAt).toLocaleString()}.`);
+      setTimeout(() => onLogout?.(), 2500);
+    } catch (error) { setNotice(error.message); setDeletionBusy(false); }
+  }
+
   if (!user) return <main className="container content"><h1>Profile</h1><p>Log in to view your profile.</p></main>;
-  if (user.role !== 'artisan') return <main className="container content"><div className="profile-panel"><p className="eyebrow">Your account</p><h1>{user.name}</h1><p className="muted">{user.email}</p><button className="secondary" onClick={onLogout}>Log out</button></div></main>;
+  if (user.role !== 'artisan') return <main className="container content"><div className="profile-panel"><p className="eyebrow">Your account</p><h1>{user.name}</h1><p className="muted">{user.email}</p><button className="secondary" onClick={onLogout}>Log out</button><AccountDeletion notice={deletionNotice} busy={deletionBusy} onDelete={deleteAccount} /></div></main>;
 
   return <main className="container content dashboard">
     <p className="eyebrow">Artisan dashboard</p>
@@ -101,6 +115,11 @@ export default function Dashboard({ user, onLogout, onProfileUpdated }) {
       </form>
     </div>
     {notice && <p className="success">{notice}</p>}
+    <AccountDeletion notice={deletionNotice} busy={deletionBusy} onDelete={deleteAccount} />
     <div className="my-products"><h2>Your products</h2>{products.map((product) => <div className="product-row" key={product.id}><img src={product.imageUrl} alt="" /><span>{product.name}</span><strong>₦{Number(product.price).toLocaleString()}</strong><button className="link" onClick={() => setEditing(product)}>Edit</button><button className="link danger" onClick={() => removeProduct(product.id)}>Delete</button></div>)}</div>
   </main>;
+}
+
+function AccountDeletion({ notice, busy, onDelete }) {
+  return <section className="account-delete"><h2>Delete account</h2><p className="muted">After you confirm, your account will be scheduled for deletion in 7 days.</p>{notice ? <p className="success">{notice}</p> : <button className="danger-button" disabled={busy} onClick={onDelete}>{busy ? 'Scheduling…' : 'Delete my account'}</button>}</section>;
 }
