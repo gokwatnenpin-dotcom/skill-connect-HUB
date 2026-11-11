@@ -8,6 +8,7 @@ import Home from './pages/Home.jsx';
 import Inbox from './pages/Inbox.jsx';
 import Orders from './pages/Orders.jsx';
 import ProductPage from './pages/ProductPage.jsx';
+import Logo from './components/Logo.jsx';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -39,7 +40,7 @@ export default function App() {
     <>
       <header>
         <div className="container nav">
-          <a className="logo" href="#home">SkillConnect<span>HUB</span></a>
+          <a className="logo" href="#home"><Logo /></a>
           <nav>
             {user ? (
               <>
