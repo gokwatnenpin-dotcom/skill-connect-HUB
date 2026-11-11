@@ -67,7 +67,10 @@ The frontend is at `http://localhost:5173` and the backend is at `http://localho
 - Text and photo messages with polling refresh and inbox listing.
 - “Message” on artisan profiles and “Ask about this” on products.
 - Payment requests inside DMs, Paystack verification/webhooks, order status, dispute, and payout tracking.
+- Confirmed-order reviews with ratings, comments/photos, seven-day customer edits, artisan replies, reports, trust badges, and optional email reminders.
 
 For hosted payments, set the Paystack webhook URL to `https://YOUR-API-DOMAIN/api/paystack/webhook`. Paystack must be able to reach this URL over HTTPS. The backend verifies the signature and transaction amount before marking an order paid.
+
+Email reminders require `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and optionally `SMTP_FROM`. Without SMTP settings, the rest of the review flow works but reminders are not sent.
 
 Payments, Cloudinary uploads, moderation, and real-time sockets are not included yet.

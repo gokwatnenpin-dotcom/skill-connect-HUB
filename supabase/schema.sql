@@ -58,6 +58,32 @@ CREATE TABLE IF NOT EXISTS orders (
   payout_status VARCHAR(30) NOT NULL DEFAULT 'pending',
   payout_reference VARCHAR(120),
   payout_error TEXT,
+  review_reminder_sent_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS review_reminder_sent_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS reviews (
+  id SERIAL PRIMARY KEY,
+  order_id INTEGER UNIQUE NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  customer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  artisan_id INTEGER NOT NULL REFERENCES artisans(id) ON DELETE CASCADE,
+  product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,
+  rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment VARCHAR(500),
+  photo_url TEXT,
+  customer_first_name VARCHAR(80) NOT NULL,
+  artisan_reply VARCHAR(500),
+  artisan_replied_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS review_reports (
+  id SERIAL PRIMARY KEY,
+  review_id INTEGER NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
+  reported_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  reason VARCHAR(20) NOT NULL CHECK (reason IN ('fake', 'rude', 'wrong_person')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (review_id, reported_by, reason)
 );
