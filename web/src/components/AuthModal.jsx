@@ -61,7 +61,10 @@ export default function AuthModal({ onClose, onLogin }) {
 
         {<>
           <div className="my-3 text-center text-sm text-slate">or continue with</div>
-          <button type="button" className="w-full rounded-lg border border-stone bg-white px-4 py-3 font-bold text-charcoal hover:border-green" onClick={continueWithGoogle}>Continue with Google</button>
+          <button type="button" className="google-button" onClick={continueWithGoogle}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21.35 12.27c0-.72-.06-1.26-.2-1.82H12v3.45h5.37a4.58 4.58 0 0 1-1.99 3.01v2.5h3.22c1.88-1.73 2.75-4.28 2.75-7.14Z"/><path fill="currentColor" d="M12 21.75c2.7 0 4.97-.9 6.63-2.44l-3.22-2.5c-.9.6-2.04.96-3.41.96-2.62 0-4.84-1.77-5.64-4.15H3.03v2.58A10 10 0 0 0 12 21.75Z"/><path fill="currentColor" d="M6.36 13.62a6 6 0 0 1 0-3.24V7.8H3.03a10 10 0 0 0 0 8.4l3.33-2.58Z"/><path fill="currentColor" d="M12 6.23c1.47 0 2.79.5 3.83 1.49l2.87-2.87C16.96 3.23 14.7 2.25 12 2.25a10 10 0 0 0-8.97 5.55l3.33 2.58C7.16 8 9.38 6.23 12 6.23Z"/></svg>
+            Continue with Google
+          </button>
         </>}
 
         {error && <p className="error">{error}</p>}
