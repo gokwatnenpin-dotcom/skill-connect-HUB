@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix web\" \"node --watch server/index.js\"",
-    "build": "npm run build --prefix web",
+    "build": "npm install --prefix web --include=dev && npm run build --prefix web",
     "start": "node server/index.js",
     "db:setup": "node scripts/setup-database.js"
   },
