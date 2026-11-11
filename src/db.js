@@ -1,3 +1,4 @@
+import '../server/config/env.js';
 import pg from 'pg';
 
 const { Pool } = pg;

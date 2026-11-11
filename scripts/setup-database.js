@@ -1,13 +1,9 @@
-import 'dotenv/config';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import '../server/config/env.js';
 import { pool } from '../src/db.js';
+import { runMigrations } from '../server/migrations/index.js';
 
-const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 try {
-  const schema = await fs.readFile(path.join(root, 'supabase', 'schema.sql'), 'utf8');
-  await pool.query(schema);
+  await runMigrations();
   console.log('SkillConnect-HUB database schema is ready.');
 } catch (error) {
   console.error(`Database setup failed: ${error.message}`);

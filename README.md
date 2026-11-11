@@ -12,19 +12,20 @@ Requirements: Node.js 18+ and PostgreSQL.
 createdb skillconnect_hub
 ```
 
-2. Create the local environment file:
+2. Create the separate local environment files:
 
 ```bash
-cp .env.example .env
+cp server/.env.example server/.env
+cp web/.env.example web/.env
 ```
 
-Edit `.env` if your PostgreSQL username, password, host, or port differs. The default database URL is:
+Edit `server/.env` for backend secrets and database settings. Edit `web/.env` only for the frontend API address. The default database URL is:
 
 ```text
 postgresql://postgres:postgres@localhost:5432/skillconnect_hub
 ```
 
-Add Paystack test credentials before testing payments:
+Add Paystack test credentials to `server/.env` before testing payments:
 
 ```text
 PAYSTACK_SECRET_KEY=sk_test_...
@@ -51,10 +52,16 @@ The frontend is at `http://localhost:5173` and the backend is at `http://localho
 
 ## Project structure
 
-- `server/index.js` — Express API
+- `server/index.js` — Express application composition and background jobs
+- `server/routes/` — auth and upload route modules
+- `server/validators/` — request validation
+- `server/services/` — Cloudinary and email integrations
+- `server/migrations/` — database setup runner
+- `server/.env` — backend-only environment values
 - `src/db.js` — PostgreSQL connection
 - `supabase/schema.sql` — database schema
 - `web/src/` — React/Vite application
+- `web/.env` — frontend-only `VITE_API_URL`
 - `Dockerfile` and `render.yaml` — deployment configuration
 
 ## Current features
@@ -71,7 +78,7 @@ The frontend is at `http://localhost:5173` and the backend is at `http://localho
 
 For hosted payments, set the Paystack webhook URL to `https://YOUR-API-DOMAIN/api/paystack/webhook`. Paystack must be able to reach this URL over HTTPS. The backend verifies the signature and transaction amount before marking an order paid.
 
-Email reminders require `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and optionally `SMTP_FROM`. Without SMTP settings, the rest of the review flow works but reminders are not sent.
+Email reminders require these backend variables in `server/.env`: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and optionally `SMTP_FROM`. Without SMTP settings, the rest of the review flow works but reminders are not sent. These variables are included in `server/.env.example`.
 
 Admin accounts are created at backend startup from `ADMIN_EMAIL` and `ADMIN_PASSWORD`; public signup cannot create admins. Set `VERIFICATION_ENCRYPTION_KEY` before accepting identity submissions. Admin access is at `#admin` after logging in.
 
