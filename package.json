@@ -2,13 +2,18 @@
   "name": "skillconnect-hub",
   "private": true,
   "version": "0.1.0",
+  "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace=frontend\" \"npm run dev --workspace=backend\"",
-    "build": "npm run build --workspace=frontend",
-    "start": "npm run start --workspace=backend",
-    "install:all": "npm install --workspaces"
+    "dev": "concurrently \"npm run dev --prefix web\" \"node --watch server/index.js\"",
+    "build": "npm run build --prefix web",
+    "start": "node server/index.js"
   },
-  "workspaces": ["frontend", "backend"],
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "pg": "^8.13.1"
+  },
   "devDependencies": {
     "concurrently": "^9.1.2"
   }

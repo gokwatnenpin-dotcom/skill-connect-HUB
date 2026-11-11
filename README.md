@@ -39,6 +39,14 @@ npm run dev
 
 The frontend is at `http://localhost:5173` and the backend is at `http://localhost:5000`.
 
+## Project structure
+
+- `server/index.js` — Express API
+- `src/db.js` — PostgreSQL connection
+- `supabase/schema.sql` — database schema
+- `web/src/` — React/Vite application
+- `Dockerfile` and `render.yaml` — deployment configuration
+
 ## Current features
 
 - Customer and artisan signup/login with hashed passwords and login tokens.
@@ -49,4 +57,4 @@ The frontend is at `http://localhost:5173` and the backend is at `http://localho
 - Text and photo messages with polling refresh and inbox listing.
 - “Message” on artisan profiles and “Ask about this” on products.
 
-Payments, Cloudinary uploads, unread persistence, moderation, and real-time sockets are not included yet.
+Payments, Cloudinary uploads, moderation, and real-time sockets are not included yet.

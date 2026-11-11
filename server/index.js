@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import crypto from 'node:crypto';
-import { pool } from './db.js';
+import { pool } from '../src/db.js';
 
 
 const app = express();
