@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { request } from '../api.js';
+import { supabase } from '../supabase.js';
 
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '324812702978-ul21fnj3ccs5spdu85al4kpcogf49bla.apps.googleusercontent.com';
 
 export default function AuthModal({ onClose, onLogin }) {
   const [signup, setSignup] = useState(false);
   const [role, setRole] = useState('customer');
   const [error, setError] = useState('');
-  const googleButton = useRef(null);
 
   async function submit(event) {
     event.preventDefault();
@@ -30,28 +29,12 @@ export default function AuthModal({ onClose, onLogin }) {
     }
   }
 
-  useEffect(() => {
-    const clientId = GOOGLE_CLIENT_ID;
-    if (!clientId || !googleButton.current) return undefined;
-    const render = () => {
-      if (!window.google || !googleButton.current) return;
-      window.google.accounts.id.initialize({
-        client_id: clientId,
-        callback: async ({ credential }) => {
-          try {
-            const data = await request('/auth/google', { method: 'POST', body: JSON.stringify({ credential, role }) });
-            localStorage.token = data.token;
-            onLogin(data.user);
-          } catch (requestError) { setError(requestError.message); }
-        },
-      });
-      googleButton.current.innerHTML = '';
-      window.google.accounts.id.renderButton(googleButton.current, { theme: 'outline', size: 'large', width: 360, text: 'continue_with' });
-    };
-    if (window.google) render();
-    else window.addEventListener('google-loaded', render, { once: true });
-    return () => window.removeEventListener('google-loaded', render);
-  }, [onLogin, role]);
+  async function continueWithGoogle() {
+    if (!supabase) { setError('Google sign-in is not configured. Add the Supabase frontend variables.'); return; }
+    localStorage.googleRole = role;
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
+    if (oauthError) setError(oauthError.message);
+  }
 
   return (
     <div className="backdrop">
@@ -76,9 +59,9 @@ export default function AuthModal({ onClose, onLogin }) {
           <button className="primary full">{signup ? 'Create account' : 'Log in'}</button>
         </form>
 
-        {GOOGLE_CLIENT_ID && <>
+        {<>
           <div className="my-3 text-center text-sm text-slate">or continue with</div>
-          <div ref={googleButton} className="flex justify-center" />
+          <button type="button" className="w-full rounded-lg border border-stone bg-white px-4 py-3 font-bold text-charcoal hover:border-green" onClick={continueWithGoogle}>Continue with Google</button>
         </>}
 
         {error && <p className="error">{error}</p>}

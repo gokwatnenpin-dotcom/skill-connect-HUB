@@ -9,6 +9,7 @@ import Inbox from './pages/Inbox.jsx';
 import Orders from './pages/Orders.jsx';
 import ProductPage from './pages/ProductPage.jsx';
 import Logo from './components/Logo.jsx';
+import { supabase } from './supabase.js';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -23,6 +24,17 @@ export default function App() {
       request('/me')
         .then((data) => setUser(data.user))
         .catch(() => localStorage.removeItem('token'));
+    } else if (supabase) {
+      supabase.auth.getSession().then(async ({ data }) => {
+        const accessToken = data.session?.access_token;
+        if (!accessToken) return;
+        try {
+          const result = await request('/auth/supabase', { method: 'POST', body: JSON.stringify({ accessToken, role: localStorage.googleRole || 'customer' }) });
+          localStorage.token = result.token;
+          localStorage.removeItem('googleRole');
+          setUser(result.user);
+        } catch (error) { console.error('Supabase sign-in exchange failed:', error.message); }
+      });
     }
 
     return () => window.removeEventListener('hashchange', onHashChange);

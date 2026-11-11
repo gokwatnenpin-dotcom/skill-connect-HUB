@@ -67,7 +67,7 @@ The frontend is at `http://localhost:5173` and the backend is at `http://localho
 ## Current features
 
 - Customer and artisan signup/login with hashed passwords and login tokens.
-- Optional Google sign-in with backend-verified Google ID tokens.
+- Optional Google sign-in through Supabase Auth, exchanged for a SkillConnect-HUB session.
 - Empty database on first setup: no seeded artisans, products, or sample cards.
 - Artisan profile creation/editing and product add/edit/delete.
 - Public skill/area search, artisan profile pages, product pages, and product lists.
@@ -99,7 +99,7 @@ Create a Vercel project with the repository root directory set to `web`. Use bui
 
 ### Google sign-in
 
-Create a Google OAuth web client ID, add your Vercel domain to its authorized JavaScript origins, then set the same client ID as `GOOGLE_CLIENT_ID` on Render and `VITE_GOOGLE_CLIENT_ID` on Vercel. The first Google sign-in asks whether the new account is a customer or artisan. The backend verifies the Google ID token before creating a SkillConnect-HUB session. Google Identity Services uses the browser credential response and server-side token verification. [Google button setup](https://developers.google.com/identity/gsi/web/guides/display-button) · [Google backend verification](https://developers.google.com/identity/sign-in/web/backend-auth)
+Create a Supabase project, enable Google under Authentication → Providers, and add the Vercel URL under Authentication → URL Configuration. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` on Render, and `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` on Vercel. The first Google sign-in asks whether the new account is a customer or artisan. Supabase verifies the Google identity, and the backend exchanges the Supabase access token for a SkillConnect-HUB session. The Supabase email settings are separate from SkillConnect-HUB reminder email; Brevo remains optional for reminders.
 
 ### Paystack webhook
 
