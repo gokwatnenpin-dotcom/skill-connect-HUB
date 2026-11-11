@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { go, request } from './api.js';
 import AuthModal from './components/AuthModal.jsx';
 import ArtisanPage from './pages/ArtisanPage.jsx';
+import AdminPage from './pages/AdminPage.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Home from './pages/Home.jsx';
 import Inbox from './pages/Inbox.jsx';
@@ -45,6 +46,7 @@ export default function App() {
                 <a href="#inbox">Inbox</a>
                 <a href="#orders">My orders</a>
                 {user.role === 'artisan' && <a href="#dashboard">My dashboard</a>}
+                {user.role === 'admin' && <a href="#admin">Admin</a>}
                 <button className="link" onClick={logout}>Log out</button>
               </>
             ) : (
@@ -58,6 +60,7 @@ export default function App() {
       {route.startsWith('inbox') && <Inbox user={user} askLogin={askLogin} />}
       {route === 'orders' && <Orders user={user} askLogin={askLogin} />}
       {route === 'dashboard' && <Dashboard user={user} />}
+      {route === 'admin' && <AdminPage user={user} />}
       {route.startsWith('artisan/') && <ArtisanPage id={route.split('/')[1]} user={user} askLogin={askLogin} />}
       {route.startsWith('product/') && <ProductPage id={route.split('/')[1]} user={user} askLogin={askLogin} />}
 

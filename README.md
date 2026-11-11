@@ -37,7 +37,7 @@ PAYSTACK_CALLBACK_URL=http://localhost:5173/#inbox
 3. Load the schema:
 
 ```bash
-psql "$DATABASE_URL" -f backend/db/schema.sql
+psql "$DATABASE_URL" -f supabase/schema.sql
 ```
 
 4. Install and run both applications:
@@ -73,4 +73,6 @@ For hosted payments, set the Paystack webhook URL to `https://YOUR-API-DOMAIN/ap
 
 Email reminders require `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and optionally `SMTP_FROM`. Without SMTP settings, the rest of the review flow works but reminders are not sent.
 
-Payments, Cloudinary uploads, moderation, and real-time sockets are not included yet.
+Admin accounts are created at backend startup from `ADMIN_EMAIL` and `ADMIN_PASSWORD`; public signup cannot create admins. Set `VERIFICATION_ENCRYPTION_KEY` before accepting identity submissions. Admin access is at `#admin` after logging in.
+
+Cloudinary uploads and real-time sockets are not included yet.

@@ -48,6 +48,17 @@ export default function Chat({ id, conversation, user }) {
     reader.readAsDataURL(file);
   }
 
+  async function reportMessage(messageId) {
+    const reason = prompt('Why are you reporting this message?');
+    if (!reason) return;
+    try {
+      await request(`/messages/${messageId}/report`, { method: 'POST', body: JSON.stringify({ reason }) });
+      setError('Message reported.');
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  }
+
   return (
     <section className="chat">
       <div className="chat-head">
@@ -61,6 +72,7 @@ export default function Chat({ id, conversation, user }) {
           <div className={`message ${message.senderId === user.id ? 'mine' : ''}`} key={message.id}>
             {message.body}
             {message.imageUrl && <img src={message.imageUrl} alt="Attached" />}
+            <button className="link report" onClick={() => reportMessage(message.id)}>Report</button>
           </div>
         ))}
       </div>
