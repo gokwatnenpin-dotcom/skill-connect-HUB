@@ -13,6 +13,7 @@ import { supabase } from './supabase.js';
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [profileImage, setProfileImage] = useState('');
   const [route, setRoute] = useState(window.location.hash.slice(1) || 'home');
   const [authOpen, setAuthOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
@@ -23,7 +24,7 @@ export default function App() {
 
     if (localStorage.token) {
       request('/me')
-        .then((data) => setUser(data.user))
+        .then((data) => { setUser(data.user); setProfileImage(data.artisan?.image_url || ''); })
         .catch(() => localStorage.removeItem('token'))
         .finally(() => setAuthLoading(false));
     } else if (supabase) {
@@ -51,6 +52,10 @@ export default function App() {
   }
 
   const askLogin = () => setAuthOpen(true);
+  function handleLogin(nextUser) {
+    setUser(nextUser);
+    request('/me').then((data) => setProfileImage(data.artisan?.image_url || '')).catch(() => setProfileImage(''));
+  }
 
   return (
     <>
@@ -60,11 +65,10 @@ export default function App() {
           <nav>
             {user ? (
               <>
-                <a href="#profile">Profile</a>
+                <a href="#profile" className="profile-nav">{profileImage ? <img src={profileImage} alt="" /> : <span className="profile-initial">{user.name?.charAt(0)?.toUpperCase()}</span>}<span>Profile</span></a>
                 <a href="#inbox">Inbox</a>
                 <a href="#orders">My orders</a>
                 {user.role === 'admin' && <a href="#admin">Admin</a>}
-                <button className="link" onClick={logout}>Log out</button>
               </>
             ) : (
               <button className="primary small" onClick={askLogin}>Log in / sign up</button>
@@ -78,7 +82,7 @@ export default function App() {
       {route === 'home' && <Home />}
       {route.startsWith('inbox') && <Inbox user={user} askLogin={askLogin} />}
       {route === 'orders' && <Orders user={user} askLogin={askLogin} />}
-      {(route === 'profile' || route === 'dashboard') && <Dashboard user={user} onLogout={logout} />}
+      {(route === 'profile' || route === 'dashboard') && <Dashboard user={user} onLogout={logout} onProfileUpdated={setProfileImage} />}
       {route === 'admin' && <AdminPage user={user} />}
       {route.startsWith('artisan/') && <ArtisanPage id={route.split('/')[1]} user={user} askLogin={askLogin} />}
       {route.startsWith('product/') && <ProductPage id={route.split('/')[1]} user={user} askLogin={askLogin} />}
@@ -87,7 +91,7 @@ export default function App() {
         <AuthModal
           onClose={() => setAuthOpen(false)}
           onLogin={(nextUser) => {
-            setUser(nextUser);
+            handleLogin(nextUser);
             setAuthOpen(false);
           }}
         />

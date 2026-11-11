@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { request, uploadFile } from '../api.js';
 
-export default function Dashboard({ user, onLogout }) {
+export default function Dashboard({ user, onLogout, onProfileUpdated }) {
   const [profile, setProfile] = useState({});
   const [products, setProducts] = useState([]);
   const [notice, setNotice] = useState('');
@@ -18,7 +18,7 @@ export default function Dashboard({ user, onLogout }) {
 
   async function saveProfile(event) {
     event.preventDefault();
-    try { const values = Object.fromEntries(new FormData(event.currentTarget)); if (values.imageFile?.name) values.imageUrl = (await uploadFile(values.imageFile, 'profile')).url; delete values.imageFile; await request('/artisan/profile', { method: 'POST', body: JSON.stringify(values) }); setNotice('Profile saved.'); load(); } catch (error) { setNotice(error.message); }
+    try { const values = Object.fromEntries(new FormData(event.currentTarget)); if (values.imageFile?.name) values.imageUrl = (await uploadFile(values.imageFile, 'profile')).url; delete values.imageFile; const result = await request('/artisan/profile', { method: 'POST', body: JSON.stringify(values) }); onProfileUpdated?.(result.artisan?.image_url || ''); setNotice('Profile saved.'); load(); } catch (error) { setNotice(error.message); }
   }
 
   async function savePayout(event) {

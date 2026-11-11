@@ -31,6 +31,9 @@
   .logo span { @apply text-green; }
   nav { @apply flex items-center gap-5; }
   nav a { @apply font-bold no-underline; }
+  .profile-nav { @apply flex items-center gap-2; }
+  .profile-nav img, .profile-initial { @apply h-9 w-9 rounded-full object-cover; }
+  .profile-initial { @apply grid place-items-center bg-green font-extrabold text-white; }
   .link { @apply cursor-pointer border-0 bg-transparent font-bold text-green; }
   .small { @apply px-3.5 py-2.5; }
   .primary { @apply cursor-pointer rounded-lg border-0 bg-green px-[18px] py-[13px] font-extrabold text-white transition-colors hover:bg-green-dark focus:outline-none focus:ring-2 focus:ring-green/30; }
