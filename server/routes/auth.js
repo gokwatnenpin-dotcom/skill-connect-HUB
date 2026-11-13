@@ -1,7 +1,7 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import crypto from 'node:crypto';
-import { normalizeEmail, validateSignup } from '../validators/auth.js';
+import { normalizeEmail, validateEmail, validateSignup } from '../validators/auth.js';
 import { getSupabaseUser } from '../services/supabase.js';
 import { sendVerificationEmail } from '../services/email.js';
 
@@ -41,6 +41,8 @@ export default function authRoutes({ pool, hashPassword, validPassword, newToken
 
   router.post('/resend-verification', authLimiter, async (req, res) => {
     const email = normalizeEmail(req.body.email || '');
+    const validationError = validateEmail(email);
+    if (validationError) return res.status(400).json({ message: validationError });
     try {
       const user = (await pool.query('SELECT id, name, email, email_verified FROM users WHERE email = $1 AND role IN (\'customer\', \'artisan\')', [email])).rows[0];
       if (user && !user.email_verified && mailer) {
@@ -68,6 +70,8 @@ export default function authRoutes({ pool, hashPassword, validPassword, newToken
   });
 
   router.post('/login', authLimiter, async (req, res) => {
+    const emailError = validateEmail(req.body.email);
+    if (emailError || !req.body.password) return res.status(400).json({ message: emailError || 'Enter your password.' });
     try {
       const result = await pool.query('SELECT * FROM users WHERE email = LOWER($1)', [req.body.email || '']);
       const user = result.rows[0];
