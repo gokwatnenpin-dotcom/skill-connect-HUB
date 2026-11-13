@@ -7,10 +7,14 @@ export default function AuthModal({ onClose, onLogin }) {
   const [signup, setSignup] = useState(false);
   const [role, setRole] = useState('customer');
   const [error, setError] = useState('');
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [suspended, setSuspended] = useState(false);
 
   async function submit(event) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    setSuspended(false);
 
     try {
       const data = await request(`/auth/${signup ? 'signup' : 'login'}`, {
@@ -22,8 +26,25 @@ export default function AuthModal({ onClose, onLogin }) {
           role,
         }),
       });
-      localStorage.token = data.token;
-      onLogin(data.user);
+      if (data.verificationRequired) {
+        setVerificationEmail(data.email);
+        setVerificationSent(true);
+      } else {
+        localStorage.token = data.token;
+        onLogin(data.user);
+      }
+    } catch (requestError) {
+      setError(requestError.message);
+      setSuspended(requestError.code === 'ACCOUNT_SUSPENDED');
+      if (requestError.code === 'EMAIL_NOT_VERIFIED') setVerificationEmail(String(form.get('email') || '').trim());
+    }
+  }
+
+  async function resendVerification() {
+    try {
+      const data = await request('/auth/resend-verification', { method: 'POST', body: JSON.stringify({ email: verificationEmail }) });
+      setVerificationSent(true);
+      setError(data.message);
     } catch (requestError) {
       setError(requestError.message);
     }
@@ -42,6 +63,8 @@ export default function AuthModal({ onClose, onLogin }) {
         <button className="close" onClick={onClose}>×</button>
         <p className="eyebrow">SkillConnectHUB</p>
         <h2>{signup ? 'Create your account' : 'Welcome back'}</h2>
+
+        {verificationSent && <p className="verification-notice">We sent a verification link to <strong>{verificationEmail}</strong>. Open it to verify your email, then log in. The link expires in 24 hours.</p>}
 
         <form className="form" onSubmit={submit}>
           {signup && <label>Name<input name="name" required /></label>}
@@ -65,7 +88,10 @@ export default function AuthModal({ onClose, onLogin }) {
           </button>
         </>}
 
-        {error && <p className="error">{error}</p>}
+        {suspended && <p className="error"><strong>Account suspended</strong><br />{error}</p>}
+        {!suspended && error && <p className="error">{error}</p>}
+        {verificationEmail && !verificationSent && <button type="button" className="link full" onClick={resendVerification}>Resend verification email</button>}
+        {verificationSent && <button type="button" className="link full" onClick={resendVerification}>Send another verification link</button>}
         <button className="link switch" onClick={() => { setSignup(!signup); setError(''); }}>
           {signup ? 'Already have an account? Log in' : 'Create an account'}
         </button>

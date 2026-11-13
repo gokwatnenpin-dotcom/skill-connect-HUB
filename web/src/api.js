@@ -14,7 +14,12 @@ export async function request(path, options = {}) {
   });
   const text = await response.text();
   const data = text ? JSON.parse(text) : {};
-  if (!response.ok) throw new Error(data.message || 'Something went wrong.');
+  if (!response.ok) {
+    const error = new Error(data.message || 'Something went wrong.');
+    error.code = data.code;
+    error.suspensionReason = data.suspensionReason;
+    throw error;
+  }
   return data;
 }
 
