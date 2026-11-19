@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { go, request } from './api.js';
 import AuthModal from './components/AuthModal.jsx';
-import ArtisanPage from './pages/ArtisanPage.jsx';
-import AdminPage from './pages/AdminPage.jsx';
-import Dashboard from './pages/Dashboard.jsx';
 import Home from './pages/Home.jsx';
-import Inbox from './pages/Inbox.jsx';
-import Orders from './pages/Orders.jsx';
-import ProductPage from './pages/ProductPage.jsx';
+const ArtisanPage = lazy(() => import('./pages/ArtisanPage.jsx'));
+const AdminPage = lazy(() => import('./pages/AdminPage.jsx'));
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
+const Inbox = lazy(() => import('./pages/Inbox.jsx'));
+const Orders = lazy(() => import('./pages/Orders.jsx'));
+const ProductPage = lazy(() => import('./pages/ProductPage.jsx'));
+const Rules = lazy(() => import('./pages/Rules.jsx'));
+import GoogleSetup from './components/GoogleSetup.jsx';
 import Logo from './components/Logo.jsx';
 import { supabase } from './supabase.js';
 
@@ -17,6 +19,7 @@ export default function App() {
   const [route, setRoute] = useState(window.location.hash.slice(1) || 'home');
   const [authOpen, setAuthOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
+  const [googleSetup, setGoogleSetup] = useState(null);
 
   useEffect(() => {
     const onHashChange = () => setRoute(window.location.hash.slice(1) || 'home');
@@ -33,10 +36,9 @@ export default function App() {
         const accessToken = data.session?.access_token;
         if (!accessToken) { setAuthLoading(false); return; }
         try {
-          const result = await request('/auth/supabase', { method: 'POST', body: JSON.stringify({ accessToken, role: localStorage.googleRole || 'customer' }) });
-          localStorage.token = result.token;
-          localStorage.removeItem('googleRole');
-          setUser(result.user);
+          const result = await request('/auth/supabase', { method: 'POST', body: JSON.stringify({ accessToken }) });
+          if (result.setupRequired) setGoogleSetup({ accessToken, identity: result.identity });
+          else { localStorage.token = result.token; setUser(result.user); }
         } catch (error) { console.error('Supabase sign-in exchange failed:', error.message); }
         finally { setAuthLoading(false); }
       });
@@ -79,13 +81,16 @@ export default function App() {
 
       {authLoading && <div className="auth-loading" role="status"><div className="auth-loading-card"><span className="loading-dot" />Signing you in securely…</div></div>}
 
-      {route === 'home' && <Home />}
-      {route.startsWith('inbox') && <Inbox user={user} askLogin={askLogin} />}
-      {route === 'orders' && <Orders user={user} askLogin={askLogin} />}
-      {(route === 'profile' || route === 'dashboard') && <Dashboard user={user} onLogout={logout} onProfileUpdated={setProfileImage} />}
-      {route === 'admin' && <AdminPage user={user} />}
-      {route.startsWith('artisan/') && <ArtisanPage id={route.split('/')[1]} user={user} askLogin={askLogin} />}
-      {route.startsWith('product/') && <ProductPage id={route.split('/')[1]} user={user} askLogin={askLogin} />}
+      <Suspense fallback={<main className="container content"><p>Loading page…</p></main>}>
+        {route === 'home' && <Home />}
+        {route.startsWith('inbox') && <Inbox user={user} askLogin={askLogin} />}
+        {route === 'orders' && <Orders user={user} askLogin={askLogin} />}
+        {(route === 'profile' || route === 'dashboard') && <Dashboard user={user} onLogout={logout} onProfileUpdated={setProfileImage} />}
+        {route === 'admin' && <AdminPage user={user} />}
+        {route === 'rules' && <Rules />}
+        {route.startsWith('artisan/') && <ArtisanPage id={route.split('/')[1]} user={user} askLogin={askLogin} />}
+        {route.startsWith('product/') && <ProductPage id={route.split('/')[1]} user={user} askLogin={askLogin} />}
+      </Suspense>
 
       {authOpen && (
         <AuthModal
@@ -96,6 +101,7 @@ export default function App() {
           }}
         />
       )}
+      {googleSetup && <GoogleSetup identity={googleSetup.identity} accessToken={googleSetup.accessToken} onComplete={(nextUser) => { setUser(nextUser); setGoogleSetup(null); }} />}
     </>
   );
 }

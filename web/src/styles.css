@@ -87,12 +87,23 @@
   .chat { @apply flex min-h-[500px] flex-col rounded-xl border border-stone; }
   .chat-head { @apply border-b border-stone p-4; }
   .chat-head small { @apply block text-slate; }
+  .chat-actions { @apply flex flex-wrap gap-2 border-b border-stone bg-white px-3 py-2; }
+  .chat-action { @apply inline-flex cursor-pointer items-center justify-center rounded-lg border border-stone bg-white px-3 py-2 text-sm font-bold text-green transition-colors hover:border-green hover:bg-cream; }
+  .chat-action input { @apply hidden; }
+  .quick-replies { @apply flex flex-wrap items-center gap-2 border-b border-stone bg-cream px-3 py-2; }
+  .quick-replies span { @apply mr-1 text-xs font-bold text-slate; }
+  .quick-replies button { @apply cursor-pointer rounded-full border border-stone bg-white px-3 py-1.5 text-xs text-charcoal hover:border-green; }
+  .attached-file { @apply flex items-center justify-between gap-3 bg-cream px-4 py-2 text-sm text-slate; }
+  .attached-file button { @apply font-bold text-danger; }
+  .chat-empty { @apply mx-auto my-10 grid max-w-sm gap-2 text-center text-slate; }
+  .chat-empty strong { @apply text-charcoal; }
   .messages { @apply flex-1 overflow-auto p-4; }
   .message { @apply my-2 max-w-[75%] whitespace-pre-wrap rounded-lg bg-cream px-3 py-2; }
   .message.mine { @apply ml-auto bg-[#EAF4EC]; }
   .message img { @apply mt-2 block max-w-[180px] rounded-md; }
-  .chat-form { @apply flex gap-2 border-t border-stone p-3; }
+  .chat-form { @apply flex gap-2 border-t border-stone bg-white p-3; }
   .chat-form input { @apply m-0; }
+  .chat-form .primary:disabled { @apply cursor-not-allowed opacity-50; }
   .dashboard-grid { @apply mt-6 grid gap-5 md:grid-cols-2; }
   .profile-title-row { @apply mt-2 flex items-start justify-between gap-5; }
   .profile-panel { @apply max-w-xl rounded-xl border border-stone bg-white p-6; }
@@ -154,6 +165,7 @@
   .order-list { @apply mt-6; }
   .order-row { @apply grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-stone py-4; }
   .order-row p { @apply my-1; }
+  .verification-notice { @apply my-4 rounded-lg border border-pending/25 bg-pending/5 p-4 text-sm leading-6 text-charcoal; }
   .totals { @apply mt-5 flex gap-4; }
   .totals div { @apply min-w-[150px] rounded-lg border border-stone bg-white p-4; }
   .totals span, .totals strong { @apply block; }
@@ -163,6 +175,12 @@
 @media (max-width: 720px) {
   .hero { @apply py-14; }
   .hero h1, .profile-head h1, .product-page h1 { @apply text-4xl; }
+  .chat { @apply min-h-[calc(100dvh-190px)]; }
+  .message { @apply max-w-[88%]; }
   .profile-head { @apply grid-cols-1; }
   .profile-head > img { @apply h-[260px] w-full; }
 }
+.chat-image { cursor: zoom-in; }
+.image-lightbox { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: rgb(0 0 0 / 82%); }
+.image-lightbox img { max-width: min(96vw, 1100px); max-height: 90vh; object-fit: contain; border-radius: 10px; }
+.image-lightbox-close { position: fixed; top: 16px; right: 16px; width: 46px; height: 46px; border: 0; border-radius: 50%; background: white; color: #1e2421; font-size: 30px; line-height: 1; cursor: pointer; }

@@ -19,15 +19,15 @@ export default function Home() {
     setProducts(productResults);
   }
 
-  useEffect(() => { search(); }, [sort]);
+  useEffect(() => { const timer = setTimeout(() => search(), 250); return () => clearTimeout(timer); }, [filters.service, filters.area, sort]);
 
   return (
     <main>
       <section className="hero"><div className="container"><p className="eyebrow">Local skills. Direct conversations.</p><h1>Find an artisan. Send a message.</h1><p className="lead">Talk directly, share details and photos, and pay safely inside SkillConnectHUB.</p></div></section>
       <section className="container search-section">
         <form className="search-box" onSubmit={search}>
-          <label>Skill or product<input value={filters.service} onChange={(event) => setFilters({ ...filters, service: event.target.value })} placeholder="Tailor, phone repair..." /></label>
-          <label>Area<input value={filters.area} onChange={(event) => setFilters({ ...filters, area: event.target.value })} placeholder="Yaba, Lagos" /></label>
+          <label>Skill or product<input value={filters.service} maxLength="80" onChange={(event) => setFilters({ ...filters, service: event.target.value })} placeholder="Tailor, phone repair..." /></label>
+          <label>Area<input value={filters.area} maxLength="120" onChange={(event) => setFilters({ ...filters, area: event.target.value })} placeholder="Yaba, Lagos" /></label>
           <label>Sort<select value={sort} onChange={(event) => setSort(event.target.value)}><option value="">Newest</option><option value="top">Top rated</option></select></label>
           <button className="primary">Search</button>
         </form>

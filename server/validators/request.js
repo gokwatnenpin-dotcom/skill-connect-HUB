@@ -24,7 +24,7 @@ export function validateRequest(req, res, next) {
   if (req.method === 'POST' && path === '/auth/signup') error = validateSignup(body);
   else if (req.method === 'POST' && path === '/auth/login') error = validateEmail(body.email) || (stringValue(body.password) ? null : 'Password is required.');
   else if (req.method === 'POST' && path === '/auth/resend-verification') error = validateEmail(body.email);
-  else if (req.method === 'POST' && path === '/auth/supabase') error = !stringValue(body.accessToken) ? 'Supabase sign-in could not be verified.' : (!['customer', 'artisan'].includes(body.role || 'customer') ? 'Choose a valid account type.' : null);
+  else if (req.method === 'POST' && path === '/auth/supabase') error = !stringValue(body.accessToken) ? 'Supabase sign-in could not be verified.' : (body.role !== undefined && !['customer', 'artisan'].includes(body.role) ? 'Choose a valid account type.' : null);
   else if (req.method === 'POST' && path === '/artisan/profile') error = validateProfile(body);
   else if (req.method === 'POST' && path === '/artisan/payout-details') error = validatePayout(body);
   else if (req.method === 'POST' && path === '/artisan/verification') error = validateVerification(body);

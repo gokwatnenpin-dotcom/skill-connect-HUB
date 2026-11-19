@@ -17,8 +17,20 @@ services:
           property: connectionString
       - key: NODE_ENV
         value: production
+      - key: PG_POOL_MAX
+        value: "10"
+      - key: PG_CONNECTION_TIMEOUT_MS
+        value: "5000"
+      - key: PG_QUERY_TIMEOUT_MS
+        value: "10000"
       - key: CLIENT_URL
         sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        sync: false
+      - key: BREVO_SENDER_NAME
+        value: SkillConnect-HUB
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: SUPABASE_URL
@@ -35,6 +47,34 @@ services:
         value: "10"
       - key: PAYSTACK_CALLBACK_URL
         sync: false
+      - key: DISPUTE_MONTHLY_LIMIT
+        value: "2"
+      - key: APPEAL_DAYS
+        value: "7"
+      - key: AUTO_RELEASE_HOURS
+        value: "48"
+      - key: NEW_CUSTOMER_MAX_ORDER_AMOUNT
+        value: "100000"
+      - key: NEW_CUSTOMER_MAX_OPEN_ORDERS
+        value: "2"
+      - key: RAISED_CUSTOMER_MAX_OPEN_ORDERS
+        value: "10"
+      - key: TWO_STRIKE_MAX_ORDER_AMOUNT
+        value: "50000"
+      - key: COMPLETED_ORDERS_TO_RAISE_LIMIT
+        value: "3"
+      - key: RAISED_CUSTOMER_MAX_ORDER_AMOUNT
+        value: "1000000"
+      - key: PHONE_VERIFICATION_MODE
+        value: "production"
+      - key: PHONE_VERIFICATION_CODE_TTL_MINUTES
+        value: "10"
+      - key: TERMII_API_KEY
+        sync: false
+      - key: TERMII_SENDER_ID
+        value: SkillConnect
+      - key: TERMII_BASE_URL
+        value: https://api.ng.termii.com
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY

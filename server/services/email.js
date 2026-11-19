@@ -4,6 +4,7 @@ export function createMailer() {
     async sendMail({ to, subject, text, html }) {
       const response = await fetch('https://api.brevo.com/v3/smtp/email', {
         method: 'POST',
+        signal: AbortSignal.timeout(15000),
         headers: { accept: 'application/json', 'api-key': process.env.BREVO_API_KEY, 'content-type': 'application/json' },
         body: JSON.stringify({
           sender: { email: process.env.BREVO_SENDER_EMAIL, name: process.env.BREVO_SENDER_NAME || 'SkillConnect-HUB' },

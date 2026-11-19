@@ -12,14 +12,14 @@ if (process.env.CLOUDINARY_URL) {
 }
 
 export function cloudinaryReady() {
-  return Boolean(process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET);
+  return Boolean(process.env.CLOUDINARY_URL || (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET));
 }
 
 export function uploadImage(file, kind) {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream({
       folder: `skillconnect/${kind}`,
-      resource_type: 'image',
+      resource_type: file.mimetype.startsWith('video/') ? 'video' : 'image',
       type: kind === 'id' ? 'authenticated' : 'upload',
     }, (error, result) => error ? reject(error) : resolve(result));
     stream.end(file.buffer);
@@ -28,4 +28,10 @@ export function uploadImage(file, kind) {
 
 export function signedPrivateImage(publicId) {
   return publicId ? cloudinary.url(publicId, { type: 'authenticated', resource_type: 'image', secure: true, sign_url: true, expires_at: Math.floor(Date.now() / 1000) + 300 }) : null;
+}
+
+export function optimizedAssetUrl(publicId, fileType = 'image/jpeg') {
+  if (!publicId) return null;
+  const resourceType = fileType.startsWith('video/') ? 'video' : 'image';
+  return cloudinary.url(publicId, { secure: true, resource_type: resourceType, transformation: resourceType === 'image' ? [{ width: 1600, height: 1600, crop: 'limit', quality: 'auto', fetch_format: 'auto' }] : [{ quality: 'auto' }] });
 }

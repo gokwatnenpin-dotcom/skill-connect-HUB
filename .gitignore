@@ -6,4 +6,6 @@ web/dist/
 !.env.example
 .vercel/
 *.log
-app.md
+*.md
+!README.md
+!AGENTS.md

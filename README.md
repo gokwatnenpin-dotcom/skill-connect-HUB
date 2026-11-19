@@ -67,6 +67,7 @@ The frontend is at `http://localhost:5173` and the backend is at `http://localho
 ## Current features
 
 - Customer and artisan signup/login with hashed passwords and login tokens.
+- Email/password signup sends a one-time Brevo verification link; unverified accounts cannot log in. Google accounts are verified by Supabase Auth.
 - Optional Google sign-in through Supabase Auth, exchanged for a SkillConnect-HUB session.
 - Empty database on first setup: no seeded artisans, products, or sample cards.
 - Artisan profile creation/editing and product add/edit/delete.
@@ -75,13 +76,16 @@ The frontend is at `http://localhost:5173` and the backend is at `http://localho
 - Text and photo messages with polling refresh and inbox listing.
 - “Message” on artisan profiles and “Ask about this” on products.
 - Payment requests inside DMs, Paystack verification/webhooks, order status, dispute, and payout tracking.
+- Order-linked append-only completion/dispute evidence, atomic order status history, configurable customer limits, strikes, appeals, durable release deadlines, and Paystack reconciliation flags.
 - Confirmed-order reviews with ratings, comments/photos, seven-day customer edits, artisan replies, reports, trust badges, and optional email reminders.
 
-For hosted payments, set the Paystack webhook URL to `https://YOUR-API-DOMAIN/api/paystack/webhook`. Paystack must be able to reach this URL over HTTPS. The backend verifies the signature and transaction amount before marking an order paid.
+For hosted payments, set the Paystack webhook URL to `https://YOUR-API-DOMAIN/api/paystack/webhook`. Paystack must be able to reach this URL over HTTPS. Enable charge, refund, and transfer success/failed/reversed events. The backend verifies the signature and transaction amount before marking an order paid and stores reconciliation issues for admins.
 
-Email reminders use Brevo's transactional email API. Add `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, and optionally `BREVO_SENDER_NAME` to `server/.env`. The sender email must be verified in Brevo. Without these settings, the rest of the review flow works but reminders are not sent.
+Account verification emails and review reminders use Brevo's transactional email API. Add `BREVO_API_KEY`, `BREVO_SENDER_EMAIL`, and optionally `BREVO_SENDER_NAME` to `server/.env` or Render. The sender email must be verified in Brevo. Email/password signup is unavailable until Brevo is configured; Google sign-in is separate.
 
-Admin accounts are created at backend startup from `ADMIN_EMAIL` and `ADMIN_PASSWORD`; public signup cannot create admins. Set `VERIFICATION_ENCRYPTION_KEY` before accepting identity submissions. Admin access is at `#admin` after logging in.
+Admin accounts are created at backend startup from `ADMIN_EMAIL` and `ADMIN_PASSWORD`; public signup cannot create admins. Set `VERIFICATION_ENCRYPTION_KEY` before accepting identity submissions. Admin access is at `#admin` after logging in. New order/dispute safeguards are configured with `DISPUTE_MONTHLY_LIMIT`, `APPEAL_DAYS`, `AUTO_RELEASE_HOURS`, customer limit variables, and phone verification variables. Use `PHONE_VERIFICATION_MODE=development` only locally; it logs test codes instead of sending SMS.
+
+Database setup and upgrades are both performed by `npm run db:setup`; it applies the idempotent schema in `supabase/schema.sql` without seeding demo records.
 
 ## Deploy
 

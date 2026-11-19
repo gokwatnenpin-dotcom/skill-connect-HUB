@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { request } from '../api.js';
 import { naira } from '../format.js';
 
-const tabs = ['overview', 'artisans', 'disputes', 'reviews', 'messages', 'users', 'payouts'];
+const tabs = ['overview', 'artisans', 'disputes', 'reviews', 'messages', 'users', 'payouts', 'reconciliation'];
 
 export default function AdminPage({ user }) {
   const [tab, setTab] = useState('overview');
@@ -21,6 +21,7 @@ export default function AdminPage({ user }) {
         messages: '/admin/messages/reported',
         users: '/admin/users',
         payouts: '/admin/payouts/failed',
+        reconciliation: '/admin/reconciliation',
       }[nextTab];
       setData(await request(path));
       setError('');
@@ -44,6 +45,7 @@ export default function AdminPage({ user }) {
     {tab === 'messages' && data && <ReportedMessages messages={data} />}
     {tab === 'users' && data && <Users users={data} reload={reload} />}
     {tab === 'payouts' && data && <FailedPayouts payouts={data} reload={reload} />}
+    {tab === 'reconciliation' && data && <Reconciliation issues={data} />}
   </main>;
 }
 
@@ -61,7 +63,8 @@ function Disputes({ disputes, reload }) {
   const [messages, setMessages] = useState({});
   async function resolve(id, action) { const amount = action === 'refund_partial' ? prompt('Refund amount in ₦') : null; const note = prompt('Decision note'); await request(`/admin/orders/${id}/resolve`, { method: 'POST', body: JSON.stringify({ action, amount, note }) }); reload(); }
   async function showMessages(id) { const data = await request(`/admin/orders/${id}/messages`); setMessages({ ...messages, [id]: data.messages }); }
-  return <><h2>Open disputes</h2>{disputes.map((dispute) => <article className="admin-card" key={dispute.id}><div className="admin-card-head"><strong>Order #{dispute.id} · {dispute.description}</strong><span>{naira(dispute.amount)}</span></div><p>{dispute.customerName} ↔ {dispute.artisanName}</p><button className="link" onClick={() => showMessages(dispute.id)}>Read order chat</button><div className="admin-actions"><button className="primary" onClick={() => resolve(dispute.id, 'refund_full')}>Full refund</button><button className="primary" onClick={() => resolve(dispute.id, 'refund_partial')}>Partial refund</button><button className="primary" onClick={() => resolve(dispute.id, 'release')}>Release money</button><button className="link" onClick={() => resolve(dispute.id, 'fix_on_hold')}>Keep on hold</button></div>{messages[dispute.id]?.map((message) => <p className="admin-message" key={message.id}><strong>{message.senderName}:</strong> {message.body}</p>)}</article>)}{!disputes.length && <p className="muted">No open disputes.</p>}</>;
+  async function strike(id, role) { const reason = prompt(`Reason for ${role} strike`); if (!reason) return; await request(`/admin/disputes/${id}/strike`, { method: 'POST', body: JSON.stringify({ role, reason }) }); reload(); }
+  return <><h2>Open disputes</h2>{disputes.map((dispute) => <article className="admin-card" key={dispute.id}><div className="admin-card-head"><strong>Order #{dispute.id} · {dispute.description}</strong><span>{naira(dispute.amount)}</span></div><p>{dispute.customerName} ↔ {dispute.artisanName}</p><p><strong>Reason:</strong> {dispute.disputeReason} · {dispute.disputeExplanation}</p><p className="muted">Evidence — artisan: {dispute.artisanProofCount}, customer: {dispute.customerProofCount}</p><button className="link" onClick={() => showMessages(dispute.id)}>Read order chat</button><div className="admin-actions"><button className="primary" onClick={() => resolve(dispute.id, 'refund_full')}>Full refund</button><button className="primary" onClick={() => resolve(dispute.id, 'refund_partial')}>Partial refund</button><button className="primary" onClick={() => resolve(dispute.id, 'release')}>Release money</button><button className="link" onClick={() => resolve(dispute.id, 'fix_on_hold')}>Keep on hold</button><button className="link danger" onClick={() => strike(dispute.id, 'customer')}>Customer strike</button><button className="link danger" onClick={() => strike(dispute.id, 'artisan')}>Artisan strike</button></div>{messages[dispute.id]?.map((message) => <p className="admin-message" key={message.id}><strong>{message.senderName}:</strong> {message.body}</p>)}</article>)}{!disputes.length && <p className="muted">No open disputes.</p>}</>;
 }
 
 function ReportedReviews({ reviews, reload }) { async function action(id, nextAction) { const reason = nextAction === 'hide' ? prompt('Reason') : ''; await request(`/admin/reviews/${id}/action`, { method: 'POST', body: JSON.stringify({ action: nextAction, reason }) }); reload(); } return <><h2>Reported reviews</h2>{reviews.map((review) => <article className="admin-card" key={review.id}><strong>{review.customerName} → {review.artisanName}</strong><p>{'★'.repeat(review.rating)} {review.comment}</p><p className="muted">Reasons: {review.reasons.join(', ')}</p><button className="link" onClick={() => action(review.id, 'keep')}>Keep</button><button className="link danger" onClick={() => action(review.id, 'hide')}>Hide</button><button className="link" onClick={() => action(review.id, 'warn')}>Warn user</button></article>)}{!reviews.length && <p className="muted">No reported reviews.</p>}</>; }
@@ -71,5 +74,6 @@ function ReportedMessages({ messages }) { return <><h2>Reported messages</h2><Ad
 function Users({ users, reload }) { const [query, setQuery] = useState(''); async function search(event) { event.preventDefault(); const result = await request(`/admin/users?q=${encodeURIComponent(query)}`); reload(result); } async function suspend(user) { const reason = user.suspended ? '' : prompt('Suspension reason'); await request(`/admin/users/${user.id}/suspension`, { method: 'POST', body: JSON.stringify({ suspended: !user.suspended, reason }) }); reload(); } return <><form className="admin-search" onSubmit={search}><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, email, phone" /><button className="primary">Search</button></form><AdminTable headers={['Name', 'Email', 'Role', 'Warnings', 'Action']} rows={users.map((user) => [user.name, user.email, user.role, user.warnings, <button className="link" onClick={() => suspend(user)}>{user.suspended ? 'Unsuspend' : 'Suspend'}</button>])} /></>; }
 
 function FailedPayouts({ payouts, reload }) { async function retry(id) { await request(`/admin/orders/${id}/retry-payout`, { method: 'POST' }); reload(); } return <><h2>Failed payouts</h2><AdminTable headers={['Order', 'Artisan', 'Amount', 'Error', 'Action']} rows={payouts.map((payout) => [payout.id, payout.artisanName, naira(payout.artisanAmount), payout.payoutError, <button className="primary" onClick={() => retry(payout.id)}>Retry transfer</button>])} /></>; }
+function Reconciliation({ issues }) { return <><h2>Paystack reconciliation issues</h2><AdminTable headers={['Order', 'Issue', 'Details', 'Date']} rows={issues.map((issue) => [issue.orderId, issue.issueType, issue.details, new Date(issue.createdAt).toLocaleString()])} />{!issues.length && <p className="muted">No open reconciliation issues.</p>}</>; }
 
 function AdminTable({ headers, rows }) { return <div className="admin-table-wrap"><table className="admin-table"><thead><tr>{headers.map((header) => <th key={header}>{header}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)}</tbody></table></div>; }

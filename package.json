@@ -7,11 +7,13 @@
     "dev": "concurrently \"npm run dev --prefix web\" \"node --watch server/index.js\"",
     "build": "npm install --prefix web --include=dev && npm run build --prefix web",
     "start": "node server/index.js",
-    "db:setup": "node scripts/setup-database.js"
+    "db:setup": "node scripts/setup-database.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
     "cloudinary": "^2.11.0",
+    "compression": "^1.8.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

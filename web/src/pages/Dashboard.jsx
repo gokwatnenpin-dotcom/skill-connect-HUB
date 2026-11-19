@@ -74,12 +74,12 @@ export default function Dashboard({ user, onLogout, onProfileUpdated }) {
     <div className="dashboard-grid">
       <form className="form panel" key={profile.id || 'profile'} onSubmit={saveProfile}>
         <h2>Profile</h2>
-        <label>Name<input name="name" defaultValue={profile.name || ''} required /></label>
-        <label>Skill<input name="skill" defaultValue={profile.skill || ''} required /></label>
-        <label>Area<input name="area" defaultValue={profile.area || ''} required /></label>
-        <label>Short bio<textarea name="bio" defaultValue={profile.bio || ''} /></label>
+        <label>Name<input name="name" defaultValue={profile.name || ''} minLength="2" maxLength="120" required /></label>
+        <label>Skill<input name="skill" defaultValue={profile.skill || ''} minLength="2" maxLength="80" required /></label>
+        <label>Area<input name="area" defaultValue={profile.area || ''} minLength="2" maxLength="120" required /></label>
+        <label>Short bio<textarea name="bio" defaultValue={profile.bio || ''} maxLength="1000" /></label>
         <label>Profile photo<input name="imageFile" type="file" accept="image/*" /></label>
-        <label>Starting price<input name="startingPrice" type="number" defaultValue={profile.starting_price || ''} /></label>
+        <label>Starting price<input name="startingPrice" type="number" min="0.01" max="100000000" step="0.01" defaultValue={profile.starting_price || ''} /></label>
         <button className="primary">Save profile</button>
       </form>
 
@@ -87,8 +87,8 @@ export default function Dashboard({ user, onLogout, onProfileUpdated }) {
         <h2>Identity verification</h2>
         <p className="muted">Status: {profile.verification_status || 'unverified'}</p>
         {profile.verification_rejection_reason && <p className="error">{profile.verification_rejection_reason}</p>}
-        <label>ID type<input name="idType" placeholder="NIN, passport..." required /></label>
-        <label>ID number<input name="idNumber" required /></label>
+        <label>ID type<select name="idType" defaultValue="nin" required><option value="nin">NIN</option><option value="passport">Passport</option></select></label>
+        <label>ID number<input name="idNumber" inputMode="numeric" autoComplete="off" minLength="6" maxLength="20" placeholder="Enter your NIN or passport number" required /></label>
         <label>ID photo<input name="idPhotoUrl" type="file" accept="image/*" required /></label>
         <label>Selfie<input name="selfieUrl" type="file" accept="image/*" required /></label>
         <button className="primary">Submit verification</button>
@@ -97,18 +97,18 @@ export default function Dashboard({ user, onLogout, onProfileUpdated }) {
       <form className="form panel" onSubmit={savePayout}>
         <h2>Payout bank details</h2>
         <p className="muted">These details are private and never shown to customers.</p>
-        <label>Bank name<input name="bankName" defaultValue={profile.bank_name || ''} required /></label>
-        <label>Bank code<input name="bankCode" defaultValue={profile.bank_code || ''} required /></label>
+        <label>Bank name<input name="bankName" defaultValue={profile.bank_name || ''} minLength="2" maxLength="120" required /></label>
+        <label>Bank code<input name="bankCode" inputMode="numeric" pattern="[0-9]{3,10}" maxLength="10" defaultValue={profile.bank_code || ''} required /></label>
         <label>Account number<input name="accountNumber" inputMode="numeric" pattern="[0-9]{10}" maxLength="10" defaultValue={profile.account_number || ''} required /></label>
         <button className="primary">Save payout details</button>
       </form>
 
       <form className="form panel" key={editing?.id || 'new-product'} onSubmit={saveProduct}>
         <h2>{editing ? 'Edit product' : 'Add product'}</h2>
-        <label>Product name<input name="name" defaultValue={editing?.name || ''} required /></label>
+        <label>Product name<input name="name" defaultValue={editing?.name || ''} minLength="2" maxLength="160" required /></label>
         <label>Photo<input name="image" type="file" accept="image/*" required={!editing} /></label>
-        <label>Price<input name="price" type="number" defaultValue={editing?.price || ''} required /></label>
-        <label>Description<textarea name="description" defaultValue={editing?.description || ''} /></label>
+        <label>Price<input name="price" type="number" min="0.01" max="100000000" step="0.01" defaultValue={editing?.price || ''} required /></label>
+        <label>Description<textarea name="description" maxLength="2000" defaultValue={editing?.description || ''} /></label>
         <label className="check"><input name="inStock" type="checkbox" value="true" defaultChecked={editing ? editing.inStock : true} /> In stock</label>
         <button className="primary">{editing ? 'Save changes' : 'Add product'}</button>
         {editing && <button type="button" className="link" onClick={() => setEditing(null)}>Cancel editing</button>}
