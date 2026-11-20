@@ -65,16 +65,6 @@ services:
         value: "3"
       - key: RAISED_CUSTOMER_MAX_ORDER_AMOUNT
         value: "1000000"
-      - key: PHONE_VERIFICATION_MODE
-        value: "production"
-      - key: PHONE_VERIFICATION_CODE_TTL_MINUTES
-        value: "10"
-      - key: TERMII_API_KEY
-        sync: false
-      - key: TERMII_SENDER_ID
-        value: SkillConnect
-      - key: TERMII_BASE_URL
-        value: https://api.ng.termii.com
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY

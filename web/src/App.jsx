@@ -26,9 +26,13 @@ export default function App() {
     window.addEventListener('hashchange', onHashChange);
 
     if (localStorage.token) {
+      try {
+        const cachedUser = JSON.parse(localStorage.user || 'null');
+        if (cachedUser?.id && cachedUser?.role) setUser(cachedUser);
+      } catch { localStorage.removeItem('user'); }
       request('/me')
-        .then((data) => { setUser(data.user); setProfileImage(data.artisan?.image_url || ''); })
-        .catch(() => localStorage.removeItem('token'))
+        .then((data) => { setUser(data.user); localStorage.user = JSON.stringify(data.user); setProfileImage(data.artisan?.image_url || ''); })
+        .catch(() => { localStorage.removeItem('token'); localStorage.removeItem('user'); setUser(null); })
         .finally(() => setAuthLoading(false));
     } else if (supabase) {
       setAuthLoading(true);
@@ -38,7 +42,7 @@ export default function App() {
         try {
           const result = await request('/auth/supabase', { method: 'POST', body: JSON.stringify({ accessToken }) });
           if (result.setupRequired) setGoogleSetup({ accessToken, identity: result.identity });
-          else { localStorage.token = result.token; setUser(result.user); }
+          else { localStorage.token = result.token; localStorage.user = JSON.stringify(result.user); setUser(result.user); }
         } catch (error) { console.error('Supabase sign-in exchange failed:', error.message); }
         finally { setAuthLoading(false); }
       });
@@ -49,12 +53,14 @@ export default function App() {
 
   function logout() {
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
     go('home');
   }
 
   const askLogin = () => setAuthOpen(true);
   function handleLogin(nextUser) {
+    localStorage.user = JSON.stringify(nextUser);
     setUser(nextUser);
     request('/me').then((data) => setProfileImage(data.artisan?.image_url || '')).catch(() => setProfileImage(''));
   }

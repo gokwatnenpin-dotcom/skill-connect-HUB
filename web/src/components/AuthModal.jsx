@@ -9,8 +9,7 @@ export default function AuthModal({ onClose, onLogin }) {
   const [error, setError] = useState('');
   const [verificationEmail, setVerificationEmail] = useState('');
   const [verificationSent, setVerificationSent] = useState(false);
-  const [phoneVerificationRequired, setPhoneVerificationRequired] = useState(false);
-  const [phoneCode, setPhoneCode] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [suspended, setSuspended] = useState(false);
 
   async function submit(event) {
@@ -25,14 +24,12 @@ export default function AuthModal({ onClose, onLogin }) {
           name: form.get('name'),
           email: form.get('email'),
           password: form.get('password'),
-          phone: form.get('phone'),
           role,
         }),
       });
       if (data.verificationRequired) {
         setVerificationEmail(data.email);
         setVerificationSent(true);
-        setPhoneVerificationRequired(Boolean(data.phoneVerificationRequired));
       } else {
         localStorage.token = data.token;
         onLogin(data.user);
@@ -42,10 +39,6 @@ export default function AuthModal({ onClose, onLogin }) {
       setSuspended(requestError.code === 'ACCOUNT_SUSPENDED');
       if (requestError.code === 'EMAIL_NOT_VERIFIED') setVerificationEmail(String(form.get('email') || '').trim());
     }
-  }
-
-  async function verifyPhone() {
-    try { const data = await request('/auth/verify-phone', { method: 'POST', body: JSON.stringify({ email: verificationEmail, code: phoneCode }) }); setError(data.message); setPhoneVerificationRequired(false); } catch (requestError) { setError(requestError.message); }
   }
 
   async function resendVerification() {
@@ -72,13 +65,11 @@ export default function AuthModal({ onClose, onLogin }) {
         <h2>{signup ? 'Create your account' : 'Welcome back'}</h2>
 
         {verificationSent && <p className="verification-notice">We sent a verification link to <strong>{verificationEmail}</strong>. Open it to verify your email, then log in. The link expires in 24 hours.</p>}
-        {phoneVerificationRequired && <div className="form"><p className="muted">In development, the test SMS code is printed in the backend log.</p><label>Phone code<input value={phoneCode} onChange={(event) => setPhoneCode(event.target.value)} inputMode="numeric" maxLength="6" /></label><button type="button" className="primary full" onClick={verifyPhone}>Verify phone</button></div>}
 
         <form className="form" onSubmit={submit}>
           {signup && <label>Name<input name="name" required minLength="2" maxLength="120" pattern="[A-Za-zÀ-ÖØ-öø-ÿ .'-]+" title="Use 2 to 120 letters, spaces, apostrophes, periods, or hyphens." autoComplete="name" /></label>}
-          {signup && <label>Phone number<input name="phone" type="tel" placeholder="+234..." autoComplete="tel" required={phoneVerificationRequired} /></label>}
           <label>Email<input name="email" type="email" required maxLength="254" autoComplete="email" /></label>
-          <label>Password<input name="password" type="password" minLength="8" maxLength="128" pattern="(?=.*[A-Za-z])(?=.*[0-9]).{8,128}" title="Use 8 to 128 characters with at least one letter and one number." required autoComplete={signup ? 'new-password' : 'current-password'} /></label>
+          <label>Password<span className="password-control"><input name="password" type={showPassword ? 'text' : 'password'} minLength="8" maxLength="128" pattern={signup ? '(?=.*[A-Za-z])(?=.*[0-9]).{8,128}' : undefined} title="Use 8 to 128 characters with at least one letter and one number." required autoComplete={signup ? 'new-password' : 'current-password'} /><button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} aria-pressed={showPassword} onClick={() => setShowPassword((value) => !value)}>{showPassword ? 'Hide' : 'Show'}</button></span></label>
           <label>
             Account type
             <select name="role" value={role} onChange={(event) => setRole(event.target.value)}>

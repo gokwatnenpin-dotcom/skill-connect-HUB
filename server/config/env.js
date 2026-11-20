@@ -19,6 +19,4 @@ export const env = {
   twoStrikeMaxOrderAmount: Number(process.env.TWO_STRIKE_MAX_ORDER_AMOUNT || 50000),
   completedOrdersToRaiseLimit: Number(process.env.COMPLETED_ORDERS_TO_RAISE_LIMIT || 3),
   raisedCustomerMaxOrderAmount: Number(process.env.RAISED_CUSTOMER_MAX_ORDER_AMOUNT || 1000000),
-  phoneVerificationMode: process.env.PHONE_VERIFICATION_MODE || 'disabled',
-  phoneVerificationCodeTtlMinutes: Number(process.env.PHONE_VERIFICATION_CODE_TTL_MINUTES || 10),
 };

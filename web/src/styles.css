@@ -166,6 +166,9 @@
   .order-row { @apply grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-stone py-4; }
   .order-row p { @apply my-1; }
   .verification-notice { @apply my-4 rounded-lg border border-pending/25 bg-pending/5 p-4 text-sm leading-6 text-charcoal; }
+  .password-control { @apply relative mt-1.5 block; }
+  .form .password-control input { @apply m-0 pr-16; }
+  .password-toggle { @apply absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-md border-0 bg-white px-2 py-1 font-bold text-green; }
   .totals { @apply mt-5 flex gap-4; }
   .totals div { @apply min-w-[150px] rounded-lg border border-stone bg-white p-4; }
   .totals span, .totals strong { @apply block; }
