@@ -63,7 +63,7 @@ export default function Chat({ id, conversation, user }) {
     if (!reason) return;
     try {
       await request(`/messages/${messageId}/report`, { method: 'POST', body: JSON.stringify({ reason }) });
-      setError('Message reported.');
+      setError('Report sent to the admin inbox.');
     } catch (requestError) {
       setError(requestError.message);
     }
@@ -91,7 +91,7 @@ export default function Chat({ id, conversation, user }) {
           <div className={`message ${message.senderId === user.id ? 'mine' : ''}`} key={message.id}>
             {message.body}
             {message.imageUrl && <img className="chat-image" src={message.imageUrl} alt="Attached" loading="lazy" onClick={() => setLightboxImage(message.imageUrl)} />}
-            <button className="link report" onClick={() => reportMessage(message.id)}>Report</button>
+            <button className="link report" onClick={() => reportMessage(message.id)}>Report to admin</button>
           </div>
         ))}
       </div>

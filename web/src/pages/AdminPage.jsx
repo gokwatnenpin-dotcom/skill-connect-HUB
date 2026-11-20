@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { request } from '../api.js';
 import { naira } from '../format.js';
 
-const tabs = ['overview', 'artisans', 'disputes', 'reviews', 'messages', 'users', 'payouts', 'reconciliation'];
+const tabs = ['overview', 'artisans', 'disputes', 'reviews', 'reports inbox', 'users', 'payouts', 'reconciliation'];
 
 export default function AdminPage({ user }) {
   const [tab, setTab] = useState('overview');
@@ -18,7 +18,7 @@ export default function AdminPage({ user }) {
         artisans: '/admin/artisans',
         disputes: '/admin/disputes',
         reviews: '/admin/reviews/reported',
-        messages: '/admin/messages/reported',
+        'reports inbox': '/admin/messages/reported',
         users: '/admin/users',
         payouts: '/admin/payouts/failed',
         reconciliation: '/admin/reconciliation',
@@ -42,7 +42,7 @@ export default function AdminPage({ user }) {
     {tab === 'artisans' && data && <ArtisanVerification artisans={data} reload={reload} />}
     {tab === 'disputes' && data && <Disputes disputes={data} reload={reload} />}
     {tab === 'reviews' && data && <ReportedReviews reviews={data} reload={reload} />}
-    {tab === 'messages' && data && <ReportedMessages messages={data} />}
+    {tab === 'reports inbox' && data && <ReportedMessages messages={data} />}
     {tab === 'users' && data && <Users users={data} reload={reload} />}
     {tab === 'payouts' && data && <FailedPayouts payouts={data} reload={reload} />}
     {tab === 'reconciliation' && data && <Reconciliation issues={data} />}
@@ -69,7 +69,7 @@ function Disputes({ disputes, reload }) {
 
 function ReportedReviews({ reviews, reload }) { async function action(id, nextAction) { const reason = nextAction === 'hide' ? prompt('Reason') : ''; await request(`/admin/reviews/${id}/action`, { method: 'POST', body: JSON.stringify({ action: nextAction, reason }) }); reload(); } return <><h2>Reported reviews</h2>{reviews.map((review) => <article className="admin-card" key={review.id}><strong>{review.customerName} → {review.artisanName}</strong><p>{'★'.repeat(review.rating)} {review.comment}</p><p className="muted">Reasons: {review.reasons.join(', ')}</p><button className="link" onClick={() => action(review.id, 'keep')}>Keep</button><button className="link danger" onClick={() => action(review.id, 'hide')}>Hide</button><button className="link" onClick={() => action(review.id, 'warn')}>Warn user</button></article>)}{!reviews.length && <p className="muted">No reported reviews.</p>}</>; }
 
-function ReportedMessages({ messages }) { return <><h2>Reported messages</h2><AdminTable headers={['Message', 'Reason', 'Conversation', 'Reported by', 'Date']} rows={messages.map((message) => [message.body || 'Photo message', message.reason, message.conversationId, message.reportedBy || 'Anonymous', new Date(message.createdAt).toLocaleString()])} /></>; }
+function ReportedMessages({ messages }) { return <><h2>Reports inbox</h2><p className="muted">Reports submitted from chat and reviews appear here for admin review.</p><AdminTable headers={['Type', 'Reported content', 'Reason', 'Conversation', 'Reported by', 'Date']} rows={messages.map((report) => [report.reportType === 'review' ? 'Review' : 'Message', report.body || report.reviewComment || 'Photo message', report.reason, report.conversationId || '—', report.reportedBy || 'Anonymous', new Date(report.createdAt).toLocaleString()])} />{!messages.length && <p className="muted">No reports yet.</p>}</>; }
 
 function Users({ users, reload }) { const [query, setQuery] = useState(''); async function search(event) { event.preventDefault(); const result = await request(`/admin/users?q=${encodeURIComponent(query)}`); reload(result); } async function suspend(user) { const reason = user.suspended ? '' : prompt('Suspension reason'); await request(`/admin/users/${user.id}/suspension`, { method: 'POST', body: JSON.stringify({ suspended: !user.suspended, reason }) }); reload(); } return <><form className="admin-search" onSubmit={search}><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, email, phone" /><button className="primary">Search</button></form><AdminTable headers={['Name', 'Email', 'Role', 'Warnings', 'Action']} rows={users.map((user) => [user.name, user.email, user.role, user.warnings, <button className="link" onClick={() => suspend(user)}>{user.suspended ? 'Unsuspend' : 'Suspend'}</button>])} /></>; }
 

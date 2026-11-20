@@ -15,7 +15,7 @@ export default function Reviews({ reviews, user, artisan, onRefresh }) {
         method: 'POST',
         body: JSON.stringify({ reason }),
       });
-      alert('Review reported.');
+      alert('Report sent to the admin inbox.');
     } catch (error) {
       alert(error.message);
     }
@@ -59,7 +59,7 @@ export default function Reviews({ reviews, user, artisan, onRefresh }) {
               </div>
             ) : <button className="link" onClick={() => setReplyId(review.id)}>Reply</button>
           )}
-          <button className="link report" onClick={() => report(review.id)}>Report</button>
+          <button className="link report" onClick={() => report(review.id)}>Report to admin</button>
         </article>
       ))}
       {!reviews.length && <p className="muted">No reviews yet.</p>}
