@@ -29,7 +29,7 @@ export default function PaymentRequestForm({ conversationId, products, onDone, o
       <input name="description" minLength="2" maxLength="2000" placeholder="What is this payment for?" required />
       <label>Materials deposit percent<input name="depositPercent" type="number" min="0" max="100" step="1" defaultValue="0" /></label>
       <label>Free changes included<input name="freeChanges" type="number" min="0" max="20" step="1" defaultValue="0" /></label>
-      <p className="muted">Before work starts: full refund. After work starts: materials deposit is not refunded. Extra changes need a new quote.</p>
+      <p className="muted">Agree on cancellation terms in chat before payment. Extra changes need a new quote.</p>
       <select name="productId">
         <option value="">No product attached</option>
         {products.map((product) => <option value={product.id} key={product.id}>{product.name} — ₦{Number(product.price).toLocaleString()}</option>)}

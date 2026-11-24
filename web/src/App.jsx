@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { go, request } from './api.js';
 import AuthModal from './components/AuthModal.jsx';
+import AppErrorBoundary from './components/AppErrorBoundary.jsx';
 import Home from './pages/Home.jsx';
 const ArtisanPage = lazy(() => import('./pages/ArtisanPage.jsx'));
 const AdminPage = lazy(() => import('./pages/AdminPage.jsx'));
@@ -9,6 +10,7 @@ const Inbox = lazy(() => import('./pages/Inbox.jsx'));
 const Orders = lazy(() => import('./pages/Orders.jsx'));
 const ProductPage = lazy(() => import('./pages/ProductPage.jsx'));
 const Rules = lazy(() => import('./pages/Rules.jsx'));
+const Terms = lazy(() => import('./pages/Terms.jsx'));
 import GoogleSetup from './components/GoogleSetup.jsx';
 import Logo from './components/Logo.jsx';
 import { supabase } from './supabase.js';
@@ -20,6 +22,7 @@ export default function App() {
   const [authOpen, setAuthOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [googleSetup, setGoogleSetup] = useState(null);
+  const [cookieNotice, setCookieNotice] = useState(() => !document.cookie.split('; ').some((item) => item.startsWith('sch_cookie_notice=')));
 
   useEffect(() => {
     const onHashChange = () => setRoute(window.location.hash.slice(1) || 'home');
@@ -87,6 +90,7 @@ export default function App() {
 
       {authLoading && <div className="auth-loading" role="status"><div className="auth-loading-card"><span className="loading-dot" />Signing you in securely…</div></div>}
 
+      <AppErrorBoundary route={route}>
       <Suspense fallback={<main className="container content"><p>Loading page…</p></main>}>
         {route === 'home' && <Home />}
         {route.startsWith('inbox') && <Inbox user={user} askLogin={askLogin} />}
@@ -94,9 +98,11 @@ export default function App() {
         {(route === 'profile' || route === 'dashboard') && <Dashboard user={user} onLogout={logout} onProfileUpdated={setProfileImage} />}
         {route === 'admin' && <AdminPage user={user} />}
         {route === 'rules' && <Rules />}
+        {route === 'terms' && <Terms />}
         {route.startsWith('artisan/') && <ArtisanPage id={route.split('/')[1]} user={user} askLogin={askLogin} />}
         {route.startsWith('product/') && <ProductPage id={route.split('/')[1]} user={user} askLogin={askLogin} />}
       </Suspense>
+      </AppErrorBoundary>
 
       {authOpen && (
         <AuthModal
@@ -108,6 +114,7 @@ export default function App() {
         />
       )}
       {googleSetup && <GoogleSetup identity={googleSetup.identity} accessToken={googleSetup.accessToken} onComplete={(nextUser) => { setUser(nextUser); setGoogleSetup(null); }} />}
+      {cookieNotice && <aside className="cookie-notice" aria-label="Cookie notice"><p><strong>Cookie notice</strong><br />We use an essential cookie to remember that you have seen this notice. SkillConnect-HUB does not use advertising cookies. See the <a href="#terms">Terms and Conditions</a>.</p><button className="primary small" onClick={() => { document.cookie = `sch_cookie_notice=seen; Max-Age=31536000; Path=/; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`; setCookieNotice(false); }}>Got it</button></aside>}
     </>
   );
 }

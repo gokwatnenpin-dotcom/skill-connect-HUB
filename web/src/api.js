@@ -10,22 +10,29 @@ export function authHeaders() {
 export async function request(path, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeout || 15000);
-  const response = await fetch(`${API}${path}`, {
-    ...options,
-    signal: controller.signal,
-    headers: { ...authHeaders(), ...(options.headers || {}) },
-  });
-  clearTimeout(timeout);
-  const text = await response.text();
-  let data = {};
-  try { data = text ? JSON.parse(text) : {}; } catch { data = { message: 'The server returned an invalid response.' }; }
-  if (!response.ok) {
-    const error = new Error(data.message || 'Something went wrong.');
-    error.code = data.code;
-    error.suspensionReason = data.suspensionReason;
+  try {
+    const response = await fetch(`${API}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: { ...authHeaders(), ...(options.headers || {}) },
+    });
+    const text = await response.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch { data = { message: 'The server returned an invalid response.' }; }
+    if (!response.ok) {
+      const error = new Error(data.message || 'Something went wrong.');
+      error.code = data.code;
+      error.suspensionReason = data.suspensionReason;
+      throw error;
+    }
+    return data;
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('The connection is taking too long. Check your network and try again.');
+    if (error instanceof TypeError) throw new Error('Could not reach SkillConnect-HUB. Check your internet connection and try again.');
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-  return data;
 }
 
 export async function uploadFile(file, kind) {

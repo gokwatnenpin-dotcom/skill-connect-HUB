@@ -7,16 +7,23 @@ export default function Home() {
   const [sort, setSort] = useState('');
   const [artisans, setArtisans] = useState([]);
   const [products, setProducts] = useState([]);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   async function search(event) {
     event?.preventDefault();
     const query = new URLSearchParams({ ...filters, ...(sort ? { sort } : {}) });
+    setLoading(true);
+    try {
     const [artisanResults, productResults] = await Promise.all([
       request(`/artisans?${query}`),
       request(`/products?search=${encodeURIComponent(filters.service)}&area=${encodeURIComponent(filters.area)}`),
     ]);
-    setArtisans(artisanResults);
-    setProducts(productResults);
+    setArtisans(Array.isArray(artisanResults) ? artisanResults : []);
+    setProducts(Array.isArray(productResults) ? productResults : []);
+    setError('');
+    } catch (requestError) { setError(requestError.message); }
+    finally { setLoading(false); }
   }
 
   useEffect(() => { const timer = setTimeout(() => search(), 250); return () => clearTimeout(timer); }, [filters.service, filters.area, sort]);
@@ -33,6 +40,8 @@ export default function Home() {
         </form>
       </section>
       <section className="container content">
+        {error && <div className="error-page" role="alert"><p>{error}</p><button className="secondary" onClick={() => search()}>Retry</button></div>}
+        {loading && <p className="muted" role="status">Updating results…</p>}
         <div className="section-heading"><div><p className="eyebrow">Artisans</p><h2>Find people near you</h2></div><span>{artisans.length} found</span></div>
         <div className="cards">{artisans.map((artisan) => <article className="card" key={artisan.id}><img src={artisan.imageUrl || '/placeholder.svg'} alt="" /><div className="card-body"><h3>{artisan.name}</h3><p className="muted">{artisan.skill} · {artisan.area}</p><p className="trust-line">{artisan.reviewCount ? `★ ${artisan.averageRating} (${artisan.reviewCount})` : 'New'} {artisan.verified && <span className="badge">Verified</span>} {artisan.topRated && <span className="badge">Top rated</span>} {artisan.reliable && <span className="badge">Reliable</span>}</p><p>{artisan.bio || 'Open to messages about services and products.'}</p><button className="primary full" onClick={() => go(`artisan/${artisan.id}`)}>View profile</button></div></article>)}</div>
         <div className="section-heading products-heading"><div><p className="eyebrow">Shop</p><h2>Products from artisans</h2></div><span>{products.length} found</span></div>

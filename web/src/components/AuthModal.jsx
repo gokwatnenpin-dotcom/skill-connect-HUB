@@ -25,6 +25,7 @@ export default function AuthModal({ onClose, onLogin }) {
           email: form.get('email'),
           password: form.get('password'),
           role,
+          acceptedTerms: form.get('acceptedTerms') === 'on',
         }),
       });
       if (data.verificationRequired) {
@@ -77,6 +78,7 @@ export default function AuthModal({ onClose, onLogin }) {
               <option value="artisan">Artisan</option>
             </select>
           </label>
+          {signup && <label className="terms-accept"><input name="acceptedTerms" type="checkbox" required /> <span>I have read and agree to the <a href="#terms" target="_blank" rel="noreferrer">Terms and Conditions</a>.</span></label>}
           <button className="primary full">{signup ? 'Create account' : 'Log in'}</button>
         </form>
 

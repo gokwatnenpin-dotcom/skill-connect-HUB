@@ -5,8 +5,10 @@ import Reviews from '../components/Reviews.jsx';
 
 export default function ProductPage({ id, user, askLogin }) {
   const [product, setProduct] = useState(null);
-  useEffect(() => { request(`/products/${id}`).then(setProduct); }, [id]);
-  if (!product) return <main className="container content"><p>Product not found.</p></main>;
+  const [error, setError] = useState('');
+  useEffect(() => { let active = true; request(`/products/${id}`).then((result) => { if (active) { setProduct(result); setError(''); } }).catch((requestError) => { if (active) setError(requestError.message); }); return () => { active = false; }; }, [id]);
+  if (!product && !error) return <main className="container content"><p role="status">Loading product…</p></main>;
+  if (!product) return <main className="container content"><p className="error" role="alert">{error}</p><button className="secondary" onClick={() => { setError(''); request(`/products/${id}`).then(setProduct).catch((e) => setError(e.message)); }}>Retry</button></main>;
 
   async function askAboutProduct() {
     if (!user) return askLogin();

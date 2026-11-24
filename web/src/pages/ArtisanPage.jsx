@@ -5,9 +5,11 @@ import Reviews from '../components/Reviews.jsx';
 
 export default function ArtisanPage({ id, user, askLogin }) {
   const [data, setData] = useState(null);
+  const [error, setError] = useState('');
 
-  useEffect(() => { request(`/artisans/${id}`).then(setData); }, [id]);
-  if (!data) return <main className="container content"><p>Loading...</p></main>;
+  useEffect(() => { let active = true; request(`/artisans/${id}`).then((result) => { if (active) { setData(result); setError(''); } }).catch((requestError) => { if (active) setError(requestError.message); }); return () => { active = false; }; }, [id]);
+  if (error && !data) return <main className="container content"><p className="error" role="alert">{error}</p><button className="secondary" onClick={() => { setError(''); request(`/artisans/${id}`).then(setData).catch((e) => setError(e.message)); }}>Retry</button></main>;
+  if (!data) return <main className="container content"><p role="status">Loading artisan…</p></main>;
 
   const artisan = data.artisan;
   async function message(product = null) {

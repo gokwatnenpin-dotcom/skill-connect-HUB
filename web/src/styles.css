@@ -166,6 +166,8 @@
   .order-row { @apply grid grid-cols-[1fr_auto_auto] items-center gap-4 border-b border-stone py-4; }
   .order-row p { @apply my-1; }
   .verification-notice { @apply my-4 rounded-lg border border-pending/25 bg-pending/5 p-4 text-sm leading-6 text-charcoal; }
+  .app-error { @apply grid justify-items-start gap-3 rounded-xl border border-stone bg-white p-6; }
+  .error-page { @apply my-4 rounded-lg border border-danger/20 bg-white p-4; }
   .password-control { @apply relative mt-1.5 block; }
   .form .password-control input { @apply m-0 pr-16; }
   .password-toggle { @apply absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-md border-0 bg-white px-2 py-1 font-bold text-green; }
@@ -187,3 +189,13 @@
 .image-lightbox { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 20px; background: rgb(0 0 0 / 82%); }
 .image-lightbox img { max-width: min(96vw, 1100px); max-height: 90vh; object-fit: contain; border-radius: 10px; }
 .image-lightbox-close { position: fixed; top: 16px; right: 16px; width: 46px; height: 46px; border: 0; border-radius: 50%; background: white; color: #1e2421; font-size: 30px; line-height: 1; cursor: pointer; }
+.terms-accept { display: flex !important; align-items: flex-start; gap: 10px; font-weight: 500; line-height: 1.5; }
+.terms-accept input { width: 20px; height: 20px; flex: 0 0 auto; margin: 2px 0 0 !important; accent-color: #1f5c46; }
+.terms-accept a, .terms-page a { color: #1f5c46; text-decoration: underline; }
+.terms-page { max-width: 850px; line-height: 1.75; }
+.terms-page h2 { margin: 2rem 0 0.5rem; font-size: 1.35rem; }
+.terms-page p { margin: 0.7rem 0; }
+.cookie-notice { position: fixed; z-index: 80; inset: auto 16px 16px; display: flex; align-items: center; justify-content: space-between; gap: 20px; max-width: 760px; margin-inline: auto; padding: 16px 20px; border: 1px solid #d8d2c6; border-radius: 12px; background: white; box-shadow: 0 12px 38px rgb(0 0 0 / 18%); }
+.cookie-notice p { margin: 0; line-height: 1.5; }
+.cookie-notice a { color: #1f5c46; text-decoration: underline; }
+@media (max-width: 560px) { .cookie-notice { align-items: stretch; flex-direction: column; gap: 12px; } }

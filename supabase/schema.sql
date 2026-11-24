@@ -8,6 +8,9 @@ CREATE TABLE IF NOT EXISTS users (
   email_verified BOOLEAN NOT NULL DEFAULT TRUE,
   phone_verified BOOLEAN NOT NULL DEFAULT FALSE, strike_review_required BOOLEAN NOT NULL DEFAULT FALSE, anonymized_at TIMESTAMPTZ,
   deletion_requested_at TIMESTAMPTZ,
+  accepted_terms BOOLEAN NOT NULL DEFAULT FALSE,
+  accepted_terms_at TIMESTAMPTZ,
+  accepted_terms_version VARCHAR(30),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
@@ -22,6 +25,9 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAU
 ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS strike_review_required BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS anonymized_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_terms BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_terms_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS accepted_terms_version VARCHAR(30);
 CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_idx ON users (google_sub) WHERE google_sub IS NOT NULL;
 CREATE INDEX IF NOT EXISTS users_created_idx ON users (created_at DESC);
 CREATE TABLE IF NOT EXISTS sessions (

@@ -21,12 +21,13 @@ export default function authRoutes({ pool, hashPassword, validPassword, newToken
 
   router.post('/signup', authLimiter, async (req, res) => {
     const { name, email, password, role = 'customer' } = req.body;
+    if (req.body.acceptedTerms !== true) return res.status(400).json({ message: 'You must accept the Terms and Conditions to register.' });
     const validationError = validateSignup({ name, email, password, role });
     if (validationError) return res.status(400).json({ message: validationError });
     if (!mailer) return res.status(503).json({ message: 'Email verification is not configured. Add BREVO_API_KEY and BREVO_SENDER_EMAIL to the backend environment.' });
     try {
       const { salt, hash } = hashPassword(password);
-      const result = await pool.query('INSERT INTO users (name, email, password_hash, password_salt, role, email_verified, phone_verified) VALUES ($1, $2, $3, $4, $5, FALSE, TRUE) RETURNING *', [name.trim(), normalizeEmail(email), hash, salt, role]);
+      const result = await pool.query('INSERT INTO users (name, email, password_hash, password_salt, role, email_verified, phone_verified, accepted_terms, accepted_terms_at, accepted_terms_version) VALUES ($1, $2, $3, $4, $5, FALSE, TRUE, TRUE, NOW(), $6) RETURNING *', [name.trim(), normalizeEmail(email), hash, salt, role, '2026-11-24']);
       try {
         await makeVerification(result.rows[0]);
       } catch (error) {
@@ -91,6 +92,7 @@ export default function authRoutes({ pool, hashPassword, validPassword, newToken
     try {
       const { accessToken, role } = req.body;
       if (!accessToken || (role !== undefined && !['customer', 'artisan'].includes(role))) return res.status(400).json({ message: 'Supabase session is required.' });
+      if (role !== undefined && req.body.acceptedTerms !== true) return res.status(400).json({ message: 'You must accept the Terms and Conditions to register.' });
       const identity = await getSupabaseUser(accessToken);
       if (!identity?.id || !identity.email) return res.status(401).json({ message: 'Supabase sign-in could not be verified.' });
       let result = await pool.query('SELECT * FROM users WHERE google_sub = $1 OR email = LOWER($2) LIMIT 1', [identity.id, identity.email]);
@@ -98,7 +100,7 @@ export default function authRoutes({ pool, hashPassword, validPassword, newToken
       if (!user && !role) return res.json({ setupRequired: true, identity: { email: identity.email, name: identity.user_metadata?.full_name || identity.email.split('@')[0] } });
       if (!user) {
         const { salt, hash } = hashPassword(newToken());
-        user = (await pool.query('INSERT INTO users (name, email, password_hash, password_salt, role, google_sub, email_verified, phone_verified) VALUES ($1, LOWER($2), $3, $4, $5, $6, TRUE, TRUE) RETURNING *', [identity.user_metadata?.full_name || identity.email.split('@')[0], identity.email, hash, salt, role, identity.id])).rows[0];
+        user = (await pool.query('INSERT INTO users (name, email, password_hash, password_salt, role, google_sub, email_verified, phone_verified, accepted_terms, accepted_terms_at, accepted_terms_version) VALUES ($1, LOWER($2), $3, $4, $5, $6, TRUE, TRUE, TRUE, NOW(), $7) RETURNING *', [identity.user_metadata?.full_name || identity.email.split('@')[0], identity.email, hash, salt, role, identity.id, '2026-11-24'])).rows[0];
       } else if (!user.google_sub) {
         user = (await pool.query('UPDATE users SET google_sub = $1, email_verified = TRUE WHERE id = $2 RETURNING *', [identity.id, user.id])).rows[0];
       }

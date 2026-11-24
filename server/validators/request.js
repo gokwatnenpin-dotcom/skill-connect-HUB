@@ -21,10 +21,10 @@ export function validateRequest(req, res, next) {
     if (typeof value !== 'string' || value.length > 120) return bad(res, `${key} is invalid.`);
   }
 
-  if (req.method === 'POST' && path === '/auth/signup') error = validateSignup(body);
+  if (req.method === 'POST' && path === '/auth/signup') error = validateSignup(body) || (body.acceptedTerms === true ? null : 'You must accept the Terms and Conditions to register.');
   else if (req.method === 'POST' && path === '/auth/login') error = validateEmail(body.email) || (stringValue(body.password) ? null : 'Password is required.');
   else if (req.method === 'POST' && path === '/auth/resend-verification') error = validateEmail(body.email);
-  else if (req.method === 'POST' && path === '/auth/supabase') error = !stringValue(body.accessToken) ? 'Supabase sign-in could not be verified.' : (body.role !== undefined && !['customer', 'artisan'].includes(body.role) ? 'Choose a valid account type.' : null);
+  else if (req.method === 'POST' && path === '/auth/supabase') error = !stringValue(body.accessToken) ? 'Supabase sign-in could not be verified.' : (body.role !== undefined && !['customer', 'artisan'].includes(body.role) ? 'Choose a valid account type.' : (body.role !== undefined && body.acceptedTerms !== true ? 'You must accept the Terms and Conditions to register.' : null));
   else if (req.method === 'POST' && path === '/artisan/profile') error = validateProfile(body);
   else if (req.method === 'POST' && path === '/artisan/payout-details') error = validatePayout(body);
   else if (req.method === 'POST' && path === '/artisan/verification') error = validateVerification(body);
@@ -40,7 +40,8 @@ export function validateRequest(req, res, next) {
   else if (req.method === 'POST' && /^\/reviews\/\d+\/report$/.test(path)) error = ['fake', 'rude', 'wrong_person'].includes(body.reason) ? null : 'Choose fake, rude, or wrong person.';
   else if (req.method === 'POST' && /^\/messages\/\d+\/report$/.test(path)) error = parsePositiveId(path.split('/')[2]) ? validateText(body.reason || 'Reported by user', 'Reason', { required: true, min: 2, max: 500 }) : 'Message ID is invalid.';
   else if (req.method === 'POST' && /^\/admin\/artisans\/[^/]+\/decision$/.test(path)) error = parsePositiveId(path.split('/')[3]) ? (!['approved', 'rejected'].includes(body.decision) ? 'Choose approved or rejected.' : validateText(body.reason, 'Reason', { max: 500 })) : 'Artisan ID is invalid.';
-  else if (req.method === 'POST' && /^\/admin\/orders\/[^/]+\/resolve$/.test(path)) { error = parsePositiveId(path.split('/')[3]) ? (!['refund_full', 'refund_partial', 'release', 'fix_on_hold'].includes(body.action) ? 'Choose a valid dispute resolution.' : validateText(body.note, 'Note', { max: 1000 })) : 'Order ID is invalid.'; if (!error && body.action === 'refund_partial') error = parseMoneyNaira(body.amount, { label: 'Refund amount' }).error; }
+  else if (req.method === 'POST' && /^\/admin\/disputes\/[^/]+\/appeal-resolve$/.test(path)) error = parsePositiveId(path.split('/')[3]) ? (!['release', 'uphold'].includes(body.action) ? 'Choose release or uphold for the appeal decision.' : validateText(body.reason, 'Reason', { required: true, min: 10, max: 1000 })) : 'Appeal ID is invalid.';
+  else if (req.method === 'POST' && /^\/admin\/orders\/[^/]+\/resolve$/.test(path)) error = parsePositiveId(path.split('/')[3]) ? (!['release', 'fix_on_hold'].includes(body.action) ? 'Choose a valid dispute resolution.' : validateText(body.note, 'Note', { max: 1000 })) : 'Order ID is invalid.';
   else if (req.method === 'POST' && /^\/admin\/reviews\/[^/]+\/action$/.test(path)) error = parsePositiveId(path.split('/')[3]) ? (!['keep', 'hide', 'warn'].includes(body.action) ? 'Choose a valid review action.' : validateText(body.reason, 'Reason', { max: 500 })) : 'Review ID is invalid.';
   else if (req.method === 'POST' && /^\/admin\/users\/[^/]+\/suspension$/.test(path)) error = parsePositiveId(path.split('/')[3]) ? (typeof body.suspended !== 'boolean' ? 'Suspension status is invalid.' : validateText(body.reason, 'Reason', { max: 500 })) : 'User ID is invalid.';
 
